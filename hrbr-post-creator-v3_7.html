@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html>
 <head>
-<link rel="icon" type="image/png" href="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAYAAABzenr0AAACfklEQVR4nMWXTUgUYRjHf+8oW6gJwa6bLnYpRYigD0lRFgpCQjHKg1SnyFsLHvIqWODFQ0W2XgyjSx6CCJHUokMRSpDbodjwAypyt12lyNX9cG227VArO7uzOrM72/4vM+887/P+f/M8My8zwtxRF6eAknJdwFRZUjiAXM1zBkgoF5CsAYy4+6wB1MyzBdINsJ1RNhC6ALQY6IVIAzCqt2pSW1u1AqbKkrTJesDUcjPlS6kT1cbZVCVTbup4x2cgl5Zkyk2+Lu00OV9K+BmyE+aiYtj+7tuOnma4a4D63lZ8q8sAuPonGXM9x/XlA8NdA1tzQ9Ews5/ec+3hDfyrKzuamypLkIwoffvNyzT2tXPBeZXD1XV0t1zRnGtoCwQCIQTBaEhzTrHWibP9Exlj4z0Pts4fv51g8NmI8QCXhhx8X/8JwKjDqYjV97ayGg4w0zdGJBohuBHWDKC5BQu+z7g987g988gxOS0e2dzg9tQ9Ljadp67qgPEAWjQ6/YSlH176Ono054gqxzHFR6m3020kU5psjw4pxooK5NtczaM4UyBVzjkzdz5asOyWCcsSdmuIuw0enHNmbrkr2GuSicUFzRUhBhu8FInMX/veTvdWJXQ9A3ZriJnWRUaalxhfKicS+5t+cl8QV/sCb9oWmV4pZWZF++am+TUEeL1cStNEDWubRZytDrBL+q2Ix4GILGGStP/r6AKwW0Pcb/6KHBecmjrIC98eAF76yzg+XkvwVxHn9gc4YcnDPpAs8e+4kdKCFts68aS4LoDU10NNiRY0Pq2htjzKGduaIn79iJ9Jbzmv/GXbrpPsVfB9QACkQvwvfRt6J6TESSHMAf4A44nFbnm+FX4AAAAASUVORK5CYII=">
+<!-- REMOVED -->iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAYAAABzenr0AAACfklEQVR4nMWXTUgUYRjHf+8oW6gJwa6bLnYpRYigD0lRFgpCQjHKg1SnyFsLHvIqWODFQ0W2XgyjSx6CCJHUokMRSpDbodjwAypyt12lyNX9cG227VArO7uzOrM72/4vM+887/P+f/M8My8zwtxRF6eAknJdwFRZUjiAXM1zBkgoF5CsAYy4+6wB1MyzBdINsJ1RNhC6ALQY6IVIAzCqt2pSW1u1AqbKkrTJesDUcjPlS6kT1cbZVCVTbup4x2cgl5Zkyk2+Lu00OV9K+BmyE+aiYtj+7tuOnma4a4D63lZ8q8sAuPonGXM9x/XlA8NdA1tzQ9Ews5/ec+3hDfyrKzuamypLkIwoffvNyzT2tXPBeZXD1XV0t1zRnGtoCwQCIQTBaEhzTrHWibP9Exlj4z0Pts4fv51g8NmI8QCXhhx8X/8JwKjDqYjV97ayGg4w0zdGJBohuBHWDKC5BQu+z7g987g988gxOS0e2dzg9tQ9Ljadp67qgPEAWjQ6/YSlH176Ono054gqxzHFR6m3020kU5psjw4pxooK5NtczaM4UyBVzjkzdz5asOyWCcsSdmuIuw0enHNmbrkr2GuSicUFzRUhBhu8FInMX/veTvdWJXQ9A3ZriJnWRUaalxhfKicS+5t+cl8QV/sCb9oWmV4pZWZF++am+TUEeL1cStNEDWubRZytDrBL+q2Ix4GILGGStP/r6AKwW0Pcb/6KHBecmjrIC98eAF76yzg+XkvwVxHn9gc4YcnDPpAs8e+4kdKCFts68aS4LoDU10NNiRY0Pq2htjzKGduaIn79iJ9Jbzmv/GXbrpPsVfB9QACkQvwvfRt6J6TESSHMAf4A44nFbnm+FX4AAAAASUVORK5CYII=">
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
 <title>HRBR Post Creator</title>
@@ -130,9 +130,9 @@ const loadSheetJsonp = () => new Promise((resolve, reject) => {
 // CORS proxy fallback for NIWA tides
 // Key passed as URL param to avoid custom headers (no preflight = no CORS block)
 const CORS_PROXIES = [
-    { url: 'https://corsproxy.io/?url=',         wrap: false },
-    { url: 'https://api.allorigins.win/get?url=', wrap: true  }, // returns {contents:...}
+    { url: 'https://api.allorigins.win/get?url=', wrap: true  }, // wraps in {contents:...}
     { url: 'https://api.codetabs.com/v1/proxy?quest=', wrap: false },
+    { url: 'https://corsproxy.io/?url=', wrap: false },
 ];
 const fetchWithFallback = async (targetUrl, options = {}) => {
     // Strip x-apikey from headers and embed in URL instead (avoids CORS preflight)
@@ -147,7 +147,10 @@ const fetchWithFallback = async (targetUrl, options = {}) => {
     for (const proxy of CORS_PROXIES) {
         try {
             const proxied = proxy.url + encodeURIComponent(urlWithTs);
-            const res = await fetch(proxied, options);
+            const controller = new AbortController();
+            const timer = setTimeout(() => controller.abort(), 8000);
+            const res = await fetch(proxied, { ...options, signal: controller.signal });
+            clearTimeout(timer);
             if (!res.ok) continue;
             if (proxy.wrap) {
                 // allorigins /get wraps content in JSON: {contents: "..."}
