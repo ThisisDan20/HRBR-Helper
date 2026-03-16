@@ -129,9 +129,9 @@ const loadSheetJsonp = () => new Promise((resolve, reject) => {
 // CORS proxy fallback for NIWA tides
 // Key passed as URL param to avoid custom headers (no preflight = no CORS block)
 const CORS_PROXIES = [
-    'https://corsproxy.io/?',
-    'https://api.allorigins.win/raw?url=',
-    'https://corsproxy.org/?',
+    { url: 'https://corsproxy.io/?url=',         wrap: false },
+    { url: 'https://api.allorigins.win/get?url=', wrap: true  }, // returns {contents:...}
+    { url: 'https://api.codetabs.com/v1/proxy?quest=', wrap: false },
 ];
 const fetchWithFallback = async (targetUrl, options = {}) => {
     // Strip x-apikey from headers and embed in URL instead (avoids CORS preflight)
@@ -141,12 +141,20 @@ const fetchWithFallback = async (targetUrl, options = {}) => {
         url = targetUrl + (targetUrl.includes('?') ? '&' : '?') + 'apikey=' + key;
         options = {};
     }
+    const sep = url.includes('?') ? '&' : '?';
+    const urlWithTs = url + sep + '_=' + Date.now();
     for (const proxy of CORS_PROXIES) {
         try {
-            const sep = url.includes('?') ? '&' : '?';
-            const proxied = proxy + encodeURIComponent(url + sep + '_=' + Date.now());
+            const proxied = proxy.url + encodeURIComponent(urlWithTs);
             const res = await fetch(proxied, options);
-            if (res.ok) return res;
+            if (!res.ok) continue;
+            if (proxy.wrap) {
+                // allorigins /get wraps content in JSON: {contents: "..."}
+                const json = await res.json();
+                const text = json.contents;
+                return { ok: true, text: () => Promise.resolve(text), json: () => Promise.resolve(JSON.parse(text)) };
+            }
+            return res;
         } catch(e) { /* try next */ }
     }
     throw new Error('All CORS proxies failed');
@@ -1193,10 +1201,10 @@ function App() {
                                         const tideColor = row.tide.includes('▲') ? '#c05c00' : row.tide.includes('▼') ? '#1a5f3a' : row.tide.startsWith('Err') ? '#dc3545' : '#333';
                                         return (
                                             <tr key={i} style={{borderBottom:'1px solid #f0f0f0'}}>
-                                                <td style={{padding:'0.25rem 0.35rem', fontWeight:500, whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis'}}>{row.name}</td>
-                                                <td style={{padding:'0.25rem 0.35rem', whiteSpace:'nowrap'}}><span style={{background:{Tuesday:'#e0f2fe',Thursday:'#d1fae5',Saturday:'#ffedd5'}[row.day]||'#eee', padding:'0.1rem 0.35rem', borderRadius:'4px', fontSize:'0.7rem', fontWeight:600}}>{row.day.slice(0,3)}</span></td>
-                                                <td style={{padding:'0.25rem 0.35rem', color:'#6c757d', whiteSpace:'nowrap'}}>{runTimeStr}</td>
-                                                <td style={{padding:'0.25rem 0.35rem', fontWeight:600, color:tideColor, whiteSpace:'nowrap'}}>{row.tide}</td>
+                                                <td style={{padding:'0.25rem 0.35rem', fontWeight:500, whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis', textAlign:'left'}}>{row.name}</td>
+                                                <td style={{padding:'0.25rem 0.35rem', whiteSpace:'nowrap', textAlign:'left'}}><span style={{background:{Tuesday:'#e0f2fe',Thursday:'#d1fae5',Saturday:'#ffedd5'}[row.day]||'#eee', padding:'0.1rem 0.35rem', borderRadius:'4px', fontSize:'0.7rem', fontWeight:600}}>{row.day.slice(0,3)}</span></td>
+                                                <td style={{padding:'0.25rem 0.35rem', color:'#6c757d', whiteSpace:'nowrap', textAlign:'left'}}>{runTimeStr}</td>
+                                                <td style={{padding:'0.25rem 0.35rem', fontWeight:600, color:tideColor, whiteSpace:'nowrap', textAlign:'left'}}>{row.tide}</td>
                                             </tr>
                                         );
                                     })}
