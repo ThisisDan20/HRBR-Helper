@@ -110,32 +110,50 @@ const loadSheetJsonp = () => new Promise((resolve, reject) => {
         delete window[fn]; script.remove();
         reject(new Error('Sheet load timed out'));
     }, 15000);
-    window[fn] = (resp) => {
+    const handleResp = (resp) => {
         clearTimeout(timer); delete window[fn]; script.remove();
         resp && resp.table ? resolve(resp.table) : reject(new Error('No table in response'));
     };
+    window[fn] = handleResp;
+    // gviz sometimes ignores callback= and calls google.visualization.Query.setResponse instead
+    window.google = window.google || {};
+    window.google.visualization = window.google.visualization || {};
+    window.google.visualization.Query = window.google.visualization.Query || {};
+    window.google.visualization.Query.setResponse = handleResp;
     script.onerror = () => { clearTimeout(timer); delete window[fn]; script.remove(); reject(new Error('Script load failed')); };
+    script.src = 'https://docs.google.com/spreadsheets/d/' + SHEET_ID
+        + '/gviz/tq?tqx=out:json&sheet=Run%20location%20list&headers=1&callback=' + fn + '&_=' + Date.now();
+    document.head.appendChild(script);
+});Script load failed')); };
     script.src = 'https://docs.google.com/spreadsheets/d/' + SHEET_ID
         + '/gviz/tq?tqx=out:json&sheet=Run%20location%20list&headers=1&callback=' + fn + '&_=' + Date.now();
     document.head.appendChild(script);
 });
 
-// CORS proxy fallback for NIWA tides (won't work from file:// but works from hosted)
+// CORS proxy fallback for NIWA tides
+// Key passed as URL param to avoid custom headers (no preflight = no CORS block)
 const CORS_PROXIES = [
     'https://corsproxy.io/?',
     'https://api.allorigins.win/raw?url=',
     'https://corsproxy.org/?',
 ];
 const fetchWithFallback = async (targetUrl, options = {}) => {
+    // Strip x-apikey from headers and embed in URL instead (avoids CORS preflight)
+    let url = targetUrl;
+    if (options.headers && options.headers['x-apikey']) {
+        const key = options.headers['x-apikey'];
+        url = targetUrl + (targetUrl.includes('?') ? '&' : '?') + 'apikey=' + key;
+        options = {};
+    }
     for (const proxy of CORS_PROXIES) {
         try {
-            const sep = targetUrl.includes('?') ? '&' : '?';
-            const url = proxy + encodeURIComponent(targetUrl + sep + '_=' + Date.now());
-            const res = await fetch(url, options);
+            const sep = url.includes('?') ? '&' : '?';
+            const proxied = proxy + encodeURIComponent(url + sep + '_=' + Date.now());
+            const res = await fetch(proxied, options);
             if (res.ok) return res;
         } catch(e) { /* try next */ }
     }
-    throw new Error('Tide proxies failed — tides require a hosted connection');
+    throw new Error('All CORS proxies failed');
 };
 
     // Date calculation functions
@@ -229,8 +247,9 @@ function App() {
     };
 
     const fetchTideForRow = async (name, day, hour, min, lat, lng) => {
+        let runTime;
         try {
-            const runTime = getRunDateForDay(day, hour, min);
+            runTime = getRunDateForDay(day, hour, min);
             const nzDate = runTime.toLocaleDateString('en-NZ', { timeZone:'Pacific/Auckland', year:'numeric', month:'2-digit', day:'2-digit' }).split('/').reverse().join('-');
             const niwaUrl = `https://api.niwa.co.nz/tides/data?lat=${lat}&long=${lng}&numberOfDays=2&startDate=${nzDate}&datum=LAT`;
             const res = await fetchWithFallback(niwaUrl, { headers: { 'x-apikey': NIWA_API_KEY } });
@@ -243,7 +262,6 @@ function App() {
             const runMs = runTime.getTime();
             lows.sort((a,b) => Math.abs(new Date(a.time)-runMs) - Math.abs(new Date(b.time)-runMs));
             const best = lows[0];
-            const near = lows[0];
             const isBefore = new Date(best.time) < runTime;
             const arrow = best.type && best.type.toUpperCase() === 'HIGH' ? '▲' : '▼';
             const tLabel = best.type && best.type.toUpperCase() === 'HIGH' ? 'High' : 'Low';
