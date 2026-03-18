@@ -209,28 +209,6 @@ const getTideFromLINZ = async (runTime) => {
     });
     return `${best.height.toFixed(1)}m (▼Low ${localTime}${isBefore ? ' past' : ''})`;
 };
-    }
-    const sep = url.includes('?') ? '&' : '?';
-    const urlWithTs = url + sep + '_=' + Date.now();
-    for (const proxy of CORS_PROXIES) {
-        try {
-            const proxied = proxy.url + encodeURIComponent(urlWithTs);
-            const controller = new AbortController();
-            const timer = setTimeout(() => controller.abort(), 8000);
-            const res = await fetch(proxied, { ...options, signal: controller.signal });
-            clearTimeout(timer);
-            if (!res.ok) continue;
-            if (proxy.wrap) {
-                // allorigins /get wraps content in JSON: {contents: "..."}
-                const json = await res.json();
-                const text = json.contents;
-                return { ok: true, text: () => Promise.resolve(text), json: () => Promise.resolve(JSON.parse(text)) };
-            }
-            return res;
-        } catch(e) { /* try next */ }
-    }
-    throw new Error('All CORS proxies failed');
-};
 
     // Date calculation functions
     const getNextDayOfWeek = (targetDay) => {
@@ -801,41 +779,11 @@ function App() {
             const linzTide = await getTideFromLINZ(runTime);
             if (linzTide) return linzTide;
             return 'No tide data';
-            }
-            const data = JSON.parse(rawText);
-            
-            const values = data.values || data.data || [];
-            // Try type === 'LOW' first (NIWA may include this field)
-            // Fallback to local minima detection if not available
-            let lows = values.filter(v => v.type && v.type.toUpperCase() === 'LOW');
-            if (lows.length === 0) {
-                // Fallback: local minima (value lower than both neighbours)
-                lows = values.filter((v, i) => {
-                    if (i === 0 || i === values.length - 1) return false;
-                    return v.value < values[i-1].value && v.value < values[i+1].value;
-                });
-                dbg('Using local minima fallback, found:', lows.length);
-            } else {
-                dbg('Using type===LOW, found:', lows.length);
-            }
-            dbg('Low tides found:', lows.length, 'of', values.length);
-            if (!lows.length) return null;
-            
-            const runMs = runTime.getTime();
-            lows.sort((a, b) => Math.abs(new Date(a.time) - runMs) - Math.abs(new Date(b.time) - runMs));
-            const best = lows[0];
-            const t = new Date(best.time);
-            const localTime = t.toLocaleTimeString('en-NZ', { 
-                hour: '2-digit', minute: '2-digit', hour12: false, 
-                timeZone: 'Pacific/Auckland' 
-            });
-            return `${best.value.toFixed(1)}m @ ${localTime}`;
         } catch(e) {
             dbg('Tide fetch error', e);
             return null;
         }
     };
-
     const fetchWeatherInfo = async (post) => {
         const loc = post.location;
         const lat = loc.lat || -36.8485;
