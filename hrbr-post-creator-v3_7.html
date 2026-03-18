@@ -1,10 +1,7 @@
 <!DOCTYPE html>
 <html>
 <head>
-<link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png">
-<link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png">
-<link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png">
-<link rel="manifest" href="/site.webmanifest">    
+<!-- REMOVED -->iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAYAAABzenr0AAACfklEQVR4nMWXTUgUYRjHf+8oW6gJwa6bLnYpRYigD0lRFgpCQjHKg1SnyFsLHvIqWODFQ0W2XgyjSx6CCJHUokMRSpDbodjwAypyt12lyNX9cG227VArO7uzOrM72/4vM+887/P+f/M8My8zwtxRF6eAknJdwFRZUjiAXM1zBkgoF5CsAYy4+6wB1MyzBdINsJ1RNhC6ALQY6IVIAzCqt2pSW1u1AqbKkrTJesDUcjPlS6kT1cbZVCVTbup4x2cgl5Zkyk2+Lu00OV9K+BmyE+aiYtj+7tuOnma4a4D63lZ8q8sAuPonGXM9x/XlA8NdA1tzQ9Ews5/ec+3hDfyrKzuamypLkIwoffvNyzT2tXPBeZXD1XV0t1zRnGtoCwQCIQTBaEhzTrHWibP9Exlj4z0Pts4fv51g8NmI8QCXhhx8X/8JwKjDqYjV97ayGg4w0zdGJBohuBHWDKC5BQu+z7g987g988gxOS0e2dzg9tQ9Ljadp67qgPEAWjQ6/YSlH176Ono054gqxzHFR6m3020kU5psjw4pxooK5NtczaM4UyBVzjkzdz5asOyWCcsSdmuIuw0enHNmbrkr2GuSicUFzRUhBhu8FInMX/veTvdWJXQ9A3ZriJnWRUaalxhfKicS+5t+cl8QV/sCb9oWmV4pZWZF++am+TUEeL1cStNEDWubRZytDrBL+q2Ix4GILGGStP/r6AKwW0Pcb/6KHBecmjrIC98eAF76yzg+XkvwVxHn9gc4YcnDPpAs8e+4kdKCFts68aS4LoDU10NNiRY0Pq2htjzKGduaIn79iJ9Jbzmv/GXbrpPsVfB9QACkQvwvfRt6J6TESSHMAf4A44nFbnm+FX4AAAAASUVORK5CYII=">
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
 <title>HRBR Post Creator</title>
@@ -226,6 +223,7 @@ function App() {
     const [errorMsg, setErrorMsg] = useState('');
     const [tideTable, setTideTable] = useState([]);
     const [tideTableLoading, setTideTableLoading] = useState(true);
+    const [tideCache, setTideCache] = useState(null); // loaded from tides.json
     const [showHowTo, setShowHowTo] = useState(false);
     const fileInputRefs = [useRef(), useRef(), useRef()];
     const canvasRef = useRef();
@@ -233,9 +231,41 @@ function App() {
     useEffect(() => {
         canvasRef.current = document.getElementById('canvas');
         loadSaturdayLocations();
+        // Load pre-fetched tide cache from GitHub Actions
+        fetch('tides.json?_=' + Date.now())
+            .then(r => r.ok ? r.json() : null)
+            .then(data => { if (data) { dbg('Tide cache loaded:', data.generated); setTideCache(data); } })
+            .catch(() => dbg('No tides.json cache found, will try live fetch'));
     }, []);
 
     // ── Weekly Tide Table ──────────────────────────────────────────────────
+    // Look up tide data from tides.json cache for a given location + run time
+    const getTideFromCache = (cache, lat, lng, runTime) => {
+        if (!cache) return null;
+        // Find best matching location by coords
+        let bestLoc = null, bestDist = Infinity;
+        for (const [name, loc] of Object.entries(cache.locations)) {
+            const dist = Math.abs(loc.lat - lat) + Math.abs(loc.lng - lng);
+            if (dist < bestDist) { bestDist = dist; bestLoc = loc; }
+        }
+        if (!bestLoc || bestDist > 0.05) return null; // >~5km, no match
+        const values = bestLoc.values || [];
+        // Find nearest low tide to run time
+        let lows = values.filter(v => v.type && v.type.toUpperCase() === 'LOW');
+        if (!lows.length) lows = values.filter((v,i) => i>0 && i<values.length-1 && v.value < values[i-1].value && v.value < values[i+1].value);
+        if (!lows.length) return null;
+        const runMs = runTime.getTime();
+        lows.sort((a,b) => Math.abs(new Date(a.time)-runMs) - Math.abs(new Date(b.time)-runMs));
+        const best = lows[0];
+        // Only use if within 4 days of run (cache covers 7 days)
+        if (Math.abs(new Date(best.time) - runMs) > 4 * 86400000) return null;
+        const isBefore = new Date(best.time) < runTime;
+        const arrow = best.type && best.type.toUpperCase() === 'HIGH' ? '▲' : '▼';
+        const tLabel = best.type && best.type.toUpperCase() === 'HIGH' ? 'High' : 'Low';
+        const localTime = new Date(best.time).toLocaleTimeString('en-NZ', { hour:'numeric', minute:'2-digit', hour12:true, timeZone:'Pacific/Auckland' });
+        return `${best.value.toFixed(1)}m (${arrow}${tLabel} ${localTime}${isBefore?' past':''})`;
+    };
+
     const FIXED_TIDE_RUNS = [
         { name: 'Mill Bay',  day: 'Tuesday',  hour: 17, min: 15, lat: -36.9985, lng: 174.5320 },
         { name: 'Laingholm', day: 'Thursday', hour: 18, min: 0,  lat: -36.9701, lng: 174.5501 },
@@ -261,6 +291,13 @@ function App() {
         let runTime;
         try {
             runTime = getRunDateForDay(day, hour, min);
+            // Try cache first (populated by GitHub Actions, no proxy needed)
+            const cached = getTideFromCache(tideCache, lat, lng, runTime);
+            if (cached) {
+                dbg('Cache hit for', name);
+                return { name, day, runTime, tide: cached };
+            }
+            dbg('Cache miss for', name, '— trying live fetch');
             const nzDate = runTime.toLocaleDateString('en-NZ', { timeZone:'Pacific/Auckland', year:'numeric', month:'2-digit', day:'2-digit' }).split('/').reverse().join('-');
             const niwaUrl = `https://api.niwa.co.nz/tides/data?lat=${lat}&long=${lng}&numberOfDays=2&startDate=${nzDate}&datum=LAT`;
             const res = await fetchWithFallback(niwaUrl, { headers: { 'x-apikey': NIWA_API_KEY } });
