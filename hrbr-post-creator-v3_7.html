@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html>
 <head>
-<!-- REMOVED -->iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAYAAABzenr0AAACfklEQVR4nMWXTUgUYRjHf+8oW6gJwa6bLnYpRYigD0lRFgpCQjHKg1SnyFsLHvIqWODFQ0W2XgyjSx6CCJHUokMRSpDbodjwAypyt12lyNX9cG227VArO7uzOrM72/4vM+887/P+f/M8My8zwtxRF6eAknJdwFRZUjiAXM1zBkgoF5CsAYy4+6wB1MyzBdINsJ1RNhC6ALQY6IVIAzCqt2pSW1u1AqbKkrTJesDUcjPlS6kT1cbZVCVTbup4x2cgl5Zkyk2+Lu00OV9K+BmyE+aiYtj+7tuOnma4a4D63lZ8q8sAuPonGXM9x/XlA8NdA1tzQ9Ews5/ec+3hDfyrKzuamypLkIwoffvNyzT2tXPBeZXD1XV0t1zRnGtoCwQCIQTBaEhzTrHWibP9Exlj4z0Pts4fv51g8NmI8QCXhhx8X/8JwKjDqYjV97ayGg4w0zdGJBohuBHWDKC5BQu+z7g987g988gxOS0e2dzg9tQ9Ljadp67qgPEAWjQ6/YSlH176Ono054gqxzHFR6m3020kU5psjw4pxooK5NtczaM4UyBVzjkzdz5asOyWCcsSdmuIuw0enHNmbrkr2GuSicUFzRUhBhu8FInMX/veTvdWJXQ9A3ZriJnWRUaalxhfKicS+5t+cl8QV/sCb9oWmV4pZWZF++am+TUEeL1cStNEDWubRZytDrBL+q2Ix4GILGGStP/r6AKwW0Pcb/6KHBecmjrIC98eAF76yzg+XkvwVxHn9gc4YcnDPpAs8e+4kdKCFts68aS4LoDU10NNiRY0Pq2htjzKGduaIn79iJ9Jbzmv/GXbrpPsVfB9QACkQvwvfRt6J6TESSHMAf4A44nFbnm+FX4AAAAASUVORK5CYII=">
+<!-- REMOVED -->
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
 <title>HRBR Post Creator</title>
@@ -96,6 +96,10 @@ canvas { display:none; }
 <div id="root"></div>
 <canvas id="canvas"></canvas>
 
+<body>
+<div id="root"></div>
+<canvas id="canvas"></canvas>
+
 <script type="text/babel">
 const { useState, useRef, useEffect } = React;
 
@@ -127,20 +131,84 @@ const loadSheetJsonp = () => new Promise((resolve, reject) => {
     document.head.appendChild(script);
 });
 
-// CORS proxy fallback for NIWA tides
-// Key passed as URL param to avoid custom headers (no preflight = no CORS block)
-const CORS_PROXIES = [
-    { url: 'https://api.allorigins.win/get?url=', wrap: true  }, // wraps in {contents:...}
-    { url: 'https://api.codetabs.com/v1/proxy?quest=', wrap: false },
-    { url: 'https://corsproxy.io/?url=', wrap: false },
-];
-const fetchWithFallback = async (targetUrl, options = {}) => {
-    // Strip x-apikey from headers and embed in URL instead (avoids CORS preflight)
-    let url = targetUrl;
-    if (options.headers && options.headers['x-apikey']) {
-        const key = options.headers['x-apikey'];
-        url = targetUrl + (targetUrl.includes('?') ? '&' : '?') + 'apikey=' + key;
-        options = {};
+// LINZ tide data — free public CSV, no auth, no proxy needed
+// Auckland CSV covers all HRBR locations (same tidal zone)
+const LINZ_CSV_URL = (year) =>
+    `https://static.charts.linz.govt.nz/tide-tables/maj-ports/csv/Auckland%20${year}.csv`;
+
+// Parse LINZ CSV into array of {date, time, height, type} objects
+// CSV row format: day, dayAbbr, month, year, time1, h1, time2, h2, [time3, h3, [time4, h4]]
+const parseLINZcsv = (text) => {
+    const tides = [];
+    const lines = text.split('\n').slice(3); // skip 3 header lines
+    for (const line of lines) {
+        const cols = line.trim().split(',');
+        if (cols.length < 6) continue;
+        const [day, , month, year] = cols;
+        const d = parseInt(day), m = parseInt(month), y = parseInt(year);
+        if (!d || !m || !y) continue;
+        // Up to 4 tide entries per row
+        for (let i = 4; i < cols.length - 1; i += 2) {
+            const timeStr = cols[i].trim();
+            const heightStr = cols[i+1].trim();
+            if (!timeStr || !heightStr) continue;
+            const [hh, mm] = timeStr.split(':').map(Number);
+            const height = parseFloat(heightStr);
+            if (isNaN(height) || isNaN(hh)) continue;
+            // NZ daylight saving: Oct-Apr = +13:00, May-Sep = +12:00
+            const offset = (m >= 10 || m <= 4) ? '+13:00' : '+12:00';
+            const mo = String(m).padStart(2,'0');
+            const dy = String(d).padStart(2,'0');
+            const hr = String(hh).padStart(2,'0');
+            const mn = String(mm).padStart(2,'0');
+            const date = new Date(`${y}-${mo}-${dy}T${hr}:${mn}:00${offset}`);
+            tides.push({ date, height });
+        }
+    }
+    // Determine high/low by comparing neighbours
+    for (let i = 0; i < tides.length; i++) {
+        const prev = i > 0 ? tides[i-1].height : Infinity;
+        const next = i < tides.length-1 ? tides[i+1].height : Infinity;
+        tides[i].type = tides[i].height < prev && tides[i].height < next ? 'LOW' : 'HIGH';
+    }
+    return tides;
+};
+
+let linzTidesCache = null; // module-level cache so we only fetch once
+
+const fetchLINZtides = async () => {
+    if (linzTidesCache) return linzTidesCache;
+    const year = new Date().getFullYear();
+    // Try current year, fall back to next if near end of year
+    for (const y of [year, year + 1]) {
+        try {
+            const res = await fetch(LINZ_CSV_URL(y));
+            if (!res.ok) continue;
+            const text = await res.text();
+            linzTidesCache = parseLINZcsv(text);
+            dbg('LINZ tides loaded:', linzTidesCache.length, 'entries for', y);
+            return linzTidesCache;
+        } catch(e) { dbg('LINZ fetch error:', e.message); }
+    }
+    return null;
+};
+
+const getTideFromLINZ = async (runTime) => {
+    const tides = await fetchLINZtides();
+    if (!tides) return null;
+    const lows = tides.filter(t => t.type === 'LOW');
+    if (!lows.length) return null;
+    const runMs = runTime.getTime();
+    lows.sort((a,b) => Math.abs(a.date - runMs) - Math.abs(b.date - runMs));
+    const best = lows[0];
+    // Only use if within 4 days
+    if (Math.abs(best.date - runMs) > 4 * 86400000) return null;
+    const isBefore = best.date < runTime;
+    const localTime = best.date.toLocaleTimeString('en-NZ', {
+        hour: 'numeric', minute: '2-digit', hour12: true, timeZone: 'Pacific/Auckland'
+    });
+    return `${best.height.toFixed(1)}m (▼Low ${localTime}${isBefore ? ' past' : ''})`;
+};
     }
     const sep = url.includes('?') ? '&' : '?';
     const urlWithTs = url + sep + '_=' + Date.now();
@@ -291,30 +359,13 @@ function App() {
         let runTime;
         try {
             runTime = getRunDateForDay(day, hour, min);
-            // Try cache first (populated by GitHub Actions, no proxy needed)
+            // Try cache first (from tides.json GitHub Actions)
             const cached = getTideFromCache(tideCache, lat, lng, runTime);
-            if (cached) {
-                dbg('Cache hit for', name);
-                return { name, day, runTime, tide: cached };
-            }
-            dbg('Cache miss for', name, '— trying live fetch');
-            const nzDate = runTime.toLocaleDateString('en-NZ', { timeZone:'Pacific/Auckland', year:'numeric', month:'2-digit', day:'2-digit' }).split('/').reverse().join('-');
-            const niwaUrl = `https://api.niwa.co.nz/tides/data?lat=${lat}&long=${lng}&numberOfDays=2&startDate=${nzDate}&datum=LAT`;
-            const res = await fetchWithFallback(niwaUrl, { headers: { 'x-apikey': NIWA_API_KEY } });
-            if (!res.ok) return { name, day, runTime, tide: `Err ${res.status}` };
-            const data = await res.json();
-            const values = data.values || data.data || [];
-            let lows = values.filter(v => v.type && v.type.toUpperCase() === 'LOW');
-            if (!lows.length) lows = values.filter((v,i) => i>0 && i<values.length-1 && v.value < values[i-1].value && v.value < values[i+1].value);
-            if (!lows.length) return { name, day, runTime, tide: 'No data' };
-            const runMs = runTime.getTime();
-            lows.sort((a,b) => Math.abs(new Date(a.time)-runMs) - Math.abs(new Date(b.time)-runMs));
-            const best = lows[0];
-            const isBefore = new Date(best.time) < runTime;
-            const arrow = best.type && best.type.toUpperCase() === 'HIGH' ? '▲' : '▼';
-            const tLabel = best.type && best.type.toUpperCase() === 'HIGH' ? 'High' : 'Low';
-            const localTime = new Date(best.time).toLocaleTimeString('en-NZ', { hour:'numeric', minute:'2-digit', hour12:true, timeZone:'Pacific/Auckland' });
-            return { name, day, runTime, tide: `${best.value.toFixed(1)}m (${arrow}${tLabel} ${localTime}${isBefore?' past':''})` };
+            if (cached) { dbg('Cache hit:', name); return { name, day, runTime, tide: cached }; }
+            // Use LINZ CSV (free, no auth, no proxy)
+            const linzResult = await getTideFromLINZ(runTime);
+            if (linzResult) { dbg('LINZ hit:', name); return { name, day, runTime, tide: linzResult }; }
+            return { name, day, runTime, tide: 'No data' };
         } catch(e) {
             return { name, day, runTime, tide: 'Error' };
         }
@@ -677,8 +728,6 @@ function App() {
         FONT_SIZE_ADDR: 32,
         TEXT_PADDING: 20,
         BOTTOM_MARGIN: 30,
-        NIWA_API_KEY: 'Fv2IGDXXtSCx0wTvZMQZLqrZXzjelE59', // Free tier, read-only
-        CORS_PROXY: 'https://corsproxy.io/?',
         SHEET_ID: '1YY-P6qHCZGyGXMhOvQv5t8SMQY6rJyPL14DRF2qI3LQ',
         COLOR_FOREST: '#1a5f3a',
         COLOR_GOLD: '#ffc107',
@@ -748,15 +797,10 @@ function App() {
                 year: 'numeric', month: '2-digit', day: '2-digit'
             }).split('/').reverse().join('-');
             
-            // Try with x-apikey header (NIWA developer portal standard)
-            const niwaUrl = `https://api.niwa.co.nz/tides/data?lat=${lat}&long=${lng}&numberOfDays=2&startDate=${nzDateStr}&datum=LAT`;
-            dbg('Fetching tides:', nzDateStr, 'for', post.day, lat, lng);
-            const res = await fetchWithFallback(niwaUrl, { headers: { 'x-apikey': NIWA_API_KEY } });
-            const rawText = await res.text();
-            dbg('NIWA raw response status:', res.status, 'body:', rawText.substring(0, 400));
-            if (!res.ok) { 
-                dbg('NIWA tide error', res.status, rawText); 
-                return `ERR:${res.status}`;
+            // Use LINZ CSV (free, no auth required)
+            const linzTide = await getTideFromLINZ(runTime);
+            if (linzTide) return linzTide;
+            return 'No tide data';
             }
             const data = JSON.parse(rawText);
             
