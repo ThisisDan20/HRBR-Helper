@@ -200,12 +200,17 @@ function App() {
 
     useEffect(() => {
         canvasRef.current = document.getElementById('canvas');
-        loadSaturdayLocations();
-        // Load pre-fetched tide cache from GitHub Actions
+        // Load tide cache first, then load sheet (tide table needs both)
         fetch('tides.json?_=' + Date.now())
             .then(r => r.ok ? r.json() : null)
-            .then(data => { if (data) { dbg('Tide cache loaded:', data.generated); setTideCache(data); } })
-            .catch(() => dbg('No tides.json cache found, will try live fetch'));
+            .then(data => {
+                if (data) { dbg('Tide cache loaded:', data.generated); setTideCache(data); }
+                loadSaturdayLocations(data || null);
+            })
+            .catch(() => {
+                dbg('No tides.json cache found');
+                loadSaturdayLocations(null);
+            });
     }, []);
 
     // ── Weekly Tide Table ──────────────────────────────────────────────────
@@ -258,20 +263,22 @@ function App() {
         return new Date(`${y}-${mo}-${dy}T${hh}:${mm}:00${offset}`);
     };
 
-    const fetchTideForRow = async (name, day, hour, min, lat, lng) => {
+    const fetchTideForRow = async (name, day, hour, min, lat, lng, cache) => {
         let runTime;
         try {
             runTime = getRunDateForDay(day, hour, min);
-            const cached = getTideFromCache(tideCache, lat, lng, runTime);
+            const effectiveCache = cache !== undefined ? cache : tideCache;
+            const cached = getTideFromCache(effectiveCache, lat, lng, runTime);
             if (cached) return { name, day, runTime, tide: cached };
-            return { name, day, runTime, tide: tideCache ? 'Not in cache' : '⏳ Cache loading' };
+            return { name, day, runTime, tide: effectiveCache ? 'Not in cache' : 'No cache (run workflow)' };
         } catch(e) {
             return { name, day, runTime, tide: 'Error' };
         }
     };
 
-    const loadTideTable = async (satLocs) => {
+    const loadTideTable = async (satLocs, cache) => {
         setTideTableLoading(true);
+        const effectiveCache = cache !== undefined ? cache : tideCache;
         const runs = [...FIXED_TIDE_RUNS];
         for (const loc of (satLocs || saturdayLocations)) {
             if (!loc.coastal && !loc.tidalLocation) continue;
@@ -288,7 +295,7 @@ function App() {
             if (!runs.find(r => r.name.toLowerCase()===dName.toLowerCase() && r.day==='Saturday'))
                 runs.push({ name: dName, day: 'Saturday', hour: 14, min: 0, lat, lng });
         }
-        const results = await Promise.all(runs.map(r => fetchTideForRow(r.name, r.day, r.hour, r.min, r.lat, r.lng)));
+        const results = await Promise.all(runs.map(r => fetchTideForRow(r.name, r.day, r.hour, r.min, r.lat, r.lng, effectiveCache)));
         const dayOrder = { Tuesday:1, Thursday:2, Saturday:3 };
         results.sort((a,b) => dayOrder[a.day]-dayOrder[b.day] || a.name.localeCompare(b.name));
         setTideTable(results);
@@ -303,7 +310,7 @@ function App() {
         } catch(e) { /* localStorage unavailable */ }
     }, [posts[2]?.selectedLocationIndex]);
 
-    const loadSaturdayLocations = async () => {
+    const loadSaturdayLocations = async (cache) => {
         try {
             setLoadingLocations(true);
             dbg('Loading Saturday locations via JSONP...');
@@ -376,11 +383,11 @@ function App() {
                 });
             }
             setLoadingLocations(false);
-            loadTideTable(locations);
+            loadTideTable(locations, cache);
         } catch (error) {
             dbg('Error loading locations:', error);
             setLoadingLocations(false);
-            loadTideTable([]);
+            loadTideTable([], cache);
             setErrorMsg(`⚠️ Could not load Saturday locations: ${error.message}`);
         }
     };
@@ -1000,7 +1007,7 @@ function App() {
                 // Estimate total height needed
                 const lineHeight = 50;
                 const addressHeight = post.location.meetingSpot ? 84 : 0;
-                const bottomMargin = 30; // Keep text away from bottom edge
+                const bottomMargin = 60; // Keep text away from bottom edge
                 const totalHeight = (linesToShow * lineHeight) + addressHeight + 40;
                 let bottomY = size - totalHeight - bottomMargin;
                 
@@ -1140,7 +1147,7 @@ function App() {
                     <div style={{flex:1, minWidth:'300px', background:'white', borderRadius:'12px', padding:'0.9rem', boxShadow:'0 2px 8px rgba(26,95,58,0.1)', border:'1px solid #dee2e6'}}>
                         <div style={{fontWeight:700, color:'var(--forest)', fontSize:'0.85rem', marginBottom:'0.6rem', paddingBottom:'0.4rem', borderBottom:'2px solid var(--gold)', display:'flex', justifyContent:'space-between', alignItems:'center'}}>
                             <span>🌊 Weekly Tides at Run Start</span>
-                            <button onClick={() => loadTideTable(saturdayLocations)} style={{background:'none', border:'1px solid var(--forest)', borderRadius:'6px', color:'var(--forest)', cursor:'pointer', fontSize:'0.72rem', padding:'0.15rem 0.45rem'}}>↺ Refresh</button>
+                            <button onClick={() => loadTideTable(saturdayLocations, tideCache)} style={{background:'none', border:'1px solid var(--forest)', borderRadius:'6px', color:'var(--forest)', cursor:'pointer', fontSize:'0.72rem', padding:'0.15rem 0.45rem'}}>↺ Refresh</button>
                         </div>
                         {tideTableLoading ? (
                             <div style={{color:'#6c757d', fontSize:'0.82rem'}}>⏳ Loading tides...</div>
