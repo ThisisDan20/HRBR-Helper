@@ -2,9 +2,7 @@ name: Fetch Weekly Tide Data
 
 on:
   schedule:
-    # 2am NZST (UTC+12) = 2pm UTC | 2am NZDT (UTC+13) = 1pm UTC
-    # Run at 1pm UTC Mon + Thu to cover Sun night and Tue/Thu/Sat runs
-    - cron: '0 13 * * 1'   # Monday 2am NZT
+    - cron: '0 13 * * 1'   # Monday 2am NZT (UTC+13)
     - cron: '0 13 * * 4'   # Thursday 2am NZT
   workflow_dispatch:         # Allow manual trigger from GitHub UI
 
@@ -18,80 +16,73 @@ jobs:
       - name: Checkout repo
         uses: actions/checkout@v4
 
-      - name: Fetch tide data from NIWA
-        env:
-          NIWA_API_KEY: ${{ secrets.NIWA_API_KEY }}
+      - name: Fetch tide data from LINZ (free, no API key)
         run: |
           python3 << 'PYEOF'
-          import urllib.request, json, os
-          from datetime import datetime, timedelta, timezone
+          import urllib.request, json, datetime
 
-          API_KEY = os.environ['NIWA_API_KEY']
-          TODAY = datetime.now(timezone.utc).strftime('%Y-%m-%d')
+          def fetch_linz_csv(year):
+              url = f"https://static.charts.linz.govt.nz/tide-tables/maj-ports/csv/Auckland%20{year}.csv"
+              req = urllib.request.Request(url, headers={'User-Agent': 'HRBR-Helper/1.0'})
+              with urllib.request.urlopen(req, timeout=15) as resp:
+                  return resp.read().decode('utf-8-sig')
 
-          # All coastal locations used in the tool
-          LOCATIONS = {
-              'mill bay':      {'lat': -36.9985, 'lng': 174.5320},
-              'laingholm':     {'lat': -36.9701, 'lng': 174.5501},
-              'cornwallis':    {'lat': -36.9985, 'lng': 174.5320},
-              'huia bay':      {'lat': -36.9990, 'lng': 174.5600},
-              'huia':          {'lat': -36.9990, 'lng': 174.5600},
-              'armour bay':    {'lat': -36.9400, 'lng': 174.5150},
-              'piha':          {'lat': -36.9538, 'lng': 174.4677},
-              'karekare':      {'lat': -36.9753, 'lng': 174.4631},
-              'whatipu':       {'lat': -37.0481, 'lng': 174.4511},
-              'takapuna':      {'lat': -36.7870, 'lng': 174.7760},
-              'browns bay':    {'lat': -36.7120, 'lng': 174.7400},
-              'castor bay':    {'lat': -36.7580, 'lng': 174.7610},
-              'devonport':     {'lat': -36.8290, 'lng': 174.8000},
-              'bucklands beach':{'lat': -36.8840, 'lng': 174.9050},
-              'onehunga':      {'lat': -36.9270, 'lng': 174.7840},
-              'little shoal bay':{'lat': -36.8350, 'lng': 174.7280},
-              'kohimarama':    {'lat': -36.8540, 'lng': 174.8380},
-              'doves bay':     {'lat': -36.9985, 'lng': 174.5560},
-              'weiti river entrance':{'lat': -36.5880, 'lng': 174.7140},
-              'mahurangi harbour':{'lat': -36.5980, 'lng': 174.7350},
-          }
+          def parse_linz_csv(text):
+              tides = []
+              lines = text.strip().split('\n')[3:]
+              for line in lines:
+                  cols = line.strip().split(',')
+                  if len(cols) < 6:
+                      continue
+                  try:
+                      d, m, y = int(cols[0]), int(cols[2]), int(cols[3])
+                  except ValueError:
+                      continue
+                  offset = '+13:00' if (m >= 10 or m <= 4) else '+12:00'
+                  for i in range(4, len(cols) - 1, 2):
+                      time_str = cols[i].strip()
+                      height_str = cols[i+1].strip()
+                      if not time_str or not height_str:
+                          continue
+                      try:
+                          hh, mm = time_str.split(':')
+                          height = float(height_str)
+                          iso = f"{y:04d}-{m:02d}-{d:02d}T{int(hh):02d}:{int(mm):02d}:00{offset}"
+                          tides.append({'time': iso, 'value': height})
+                      except (ValueError, IndexError):
+                          continue
+              for i in range(len(tides)):
+                  prev = tides[i-1]['value'] if i > 0 else float('inf')
+                  nxt = tides[i+1]['value'] if i < len(tides)-1 else float('inf')
+                  tides[i]['type'] = 'LOW' if tides[i]['value'] < prev and tides[i]['value'] < nxt else 'HIGH'
+              return tides
 
-          results = {}
-          errors = []
-
-          for name, coords in LOCATIONS.items():
-              url = (
-                  f"https://api.niwa.co.nz/tides/data"
-                  f"?lat={coords['lat']}&long={coords['lng']}"
-                  f"&numberOfDays=7&startDate={TODAY}&datum=LAT"
-                  f"&apikey={API_KEY}"
-              )
+          today = datetime.date.today()
+          year = today.year
+          print(f"Fetching LINZ tide data for {year}...")
+          tides = []
+          for y in ([year, year + 1] if today.month >= 11 else [year]):
               try:
-                  req = urllib.request.Request(url)
-                  with urllib.request.urlopen(req, timeout=15) as resp:
-                      data = json.loads(resp.read())
-                      results[name] = {
-                          'lat': coords['lat'],
-                          'lng': coords['lng'],
-                          'fetched': TODAY,
-                          'values': data.get('values', [])
-                      }
-                      print(f"  OK: {name} ({len(results[name]['values'])} values)")
+                  tides += parse_linz_csv(fetch_linz_csv(y))
+                  print(f"  OK {y}: {len(tides)} entries so far")
               except Exception as e:
-                  errors.append(name)
-                  print(f"  FAIL: {name} — {e}")
+                  print(f"  FAIL {y}: {e}")
 
           output = {
-              'generated': datetime.now(timezone.utc).isoformat(),
-              'startDate': TODAY,
-              'days': 7,
-              'locations': results,
-              'errors': errors
+              'generated': datetime.datetime.utcnow().isoformat() + 'Z',
+              'startDate': today.isoformat(),
+              'source': 'LINZ',
+              'locations': {
+                  'auckland': {
+                      'lat': -36.8485,
+                      'lng': 174.7633,
+                      'values': tides
+                  }
+              }
           }
-
           with open('tides.json', 'w') as f:
               json.dump(output, f)
-
-          print(f"\nDone: {len(results)} locations, {len(errors)} errors")
-          if errors:
-              print("Errors:", errors)
+          print(f"Done: {len(tides)} tide entries written to tides.json")
           PYEOF
 
       - name: Commit tides.json
