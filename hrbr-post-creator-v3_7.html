@@ -267,16 +267,16 @@ function App() {
         return new Date(`${y}-${mo}-${dy}T${hh}:${mm}:00${offset}`);
     };
 
-    const fetchTideForRow = async (name, day, hour, min, lat, lng, cache, station) => {
+    const fetchTideForRow = async (name, day, hour, min, lat, lng, cache, station, desc) => {
         let runTime;
         try {
             runTime = getRunDateForDay(day, hour, min);
             const effectiveCache = cache !== undefined ? cache : tideCache;
             const cached = getTideFromCache(effectiveCache, lat, lng, runTime, station);
-            if (cached) return { name, day, runTime, tide: cached };
-            return { name, day, runTime, tide: effectiveCache ? 'Not in cache' : 'No cache (run workflow)' };
+            if (cached) return { name, day, runTime, tide: cached, desc };
+            return { name, day, runTime, tide: effectiveCache ? 'Not in cache' : 'No cache (run workflow)', desc };
         } catch(e) {
-            return { name, day, runTime, tide: 'Error' };
+            return { name, day, runTime, tide: 'Error', desc };
         }
     };
 
@@ -301,7 +301,7 @@ function App() {
             if (!runs.find(r => r.station === s.station && r.day === 'Saturday'))
                 runs.push(s);
         }
-        const results = await Promise.all(runs.map(r => fetchTideForRow(r.name, r.day, r.hour, r.min, r.lat, r.lng, effectiveCache, r.station)));
+        const results = await Promise.all(runs.map(r => fetchTideForRow(r.name, r.day, r.hour, r.min, r.lat, r.lng, effectiveCache, r.station, r.desc)));
         const dayOrder = { Tuesday:1, Thursday:2, Saturday:3 };
         results.sort((a,b) => dayOrder[a.day]-dayOrder[b.day] || a.name.localeCompare(b.name));
         setTideTable(results);
@@ -1158,6 +1158,44 @@ function App() {
 
     return (
         <div className="container">
+            {/* How To Use */}
+            <div style={{marginBottom:'1.5rem', background:'white', borderRadius:'12px', boxShadow:'0 2px 8px rgba(26,95,58,0.08)', border:'1px solid #dee2e6', overflow:'hidden'}}>
+                <button onClick={() => setShowHowTo(h => !h)} style={{background:'none', border:'none', cursor:'pointer', display:'flex', alignItems:'center', gap:'0.5rem', color:'var(--forest)', fontWeight:600, fontSize:'0.9rem', padding:'0.75rem 1.25rem', width:'100%', textAlign:'left'}}>
+                    <span style={{fontSize:'0.9rem'}}>{showHowTo ? '▼' : '▶'}</span>
+                    <span>How to use this tool</span>
+                </button>
+                {showHowTo && (
+                    <div style={{padding:'0 1.25rem 1.25rem 1.25rem', borderTop:'1px solid #f0f0f0'}}>
+                        <div style={{display:'grid', gridTemplateColumns:'repeat(auto-fit, minmax(200px, 1fr))', gap:'1rem', marginTop:'1rem'}}>
+                            {[
+                                { icon:'🌊', step:'1', title:'Sheet loads automatically', desc:'Saturday run locations load from Google Sheets on open. Tide table loads top-right.' },
+                                { icon:'📍', step:'2', title:'Choose locations', desc:'Tuesday is fixed. Pick Thursday and Saturday from the dropdowns.' },
+                                { icon:'📸', step:'3', title:'Upload photos (optional)', desc:'Add a photo to any day\'s card. Required to generate an Instagram image.' },
+                                { icon:'✨', step:'4', title:'Generate Posts', desc:'Click Generate Posts to fetch live tide and weather for all three days.' },
+                                { icon:'📋', step:'5', title:'Copy your content', desc:'Copy Caption for Instagram/Facebook, Copy Email for the weekly email.' },
+                                { icon:'🖼️', step:'6', title:'Download Instagram image', desc:'Upload a photo first, then click Download Image. Logo, weather and location added automatically.' },
+                            ].map(item => (
+                                <div key={item.step} style={{display:'flex', gap:'0.75rem', alignItems:'flex-start'}}>
+                                    <div style={{fontSize:'1.4rem', flexShrink:0}}>{item.icon}</div>
+                                    <div>
+                                        <div style={{fontWeight:700, fontSize:'0.8rem', color:'var(--forest)', marginBottom:'0.2rem'}}>
+                                            <span style={{background:'var(--gold)', borderRadius:'50%', width:'16px', height:'16px', display:'inline-flex', alignItems:'center', justifyContent:'center', fontSize:'0.65rem', fontWeight:800, marginRight:'0.3rem'}}>{item.step}</span>
+                                            {item.title}
+                                        </div>
+                                        <div style={{fontSize:'0.78rem', color:'#555', lineHeight:'1.4'}}>{item.desc}</div>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                        <div style={{marginTop:'0.75rem', paddingTop:'0.75rem', borderTop:'1px solid #f0f0f0', display:'flex', gap:'1.5rem', flexWrap:'wrap'}}>
+                            <span style={{fontSize:'0.75rem', color:'#666'}}>🐕 Dogs: column F of sheet</span>
+                            <span style={{fontSize:'0.75rem', color:'#666'}}>🌊 Tides: column M (tidal location)</span>
+                            <span style={{fontSize:'0.75rem', color:'#666'}}>📍 Start location: column J</span>
+                        </div>
+                    </div>
+                )}
+            </div>
+
             <div className="header">
                 <div style={{display:'flex', alignItems:'flex-start', gap:'1.5rem', flexWrap:'wrap', justifyContent:'center'}}>
                     <div style={{display:'flex', flexDirection:'column', alignItems:'center', gap:'0.5rem', flexShrink:0}}>
@@ -1208,43 +1246,7 @@ function App() {
                 </div>
             </div>
 
-            {/* How To Use */}
-            <div style={{marginBottom:'1.5rem', background:'white', borderRadius:'12px', boxShadow:'0 2px 8px rgba(26,95,58,0.08)', border:'1px solid #dee2e6', overflow:'hidden'}}>
-                <button onClick={() => setShowHowTo(h => !h)} style={{background:'none', border:'none', cursor:'pointer', display:'flex', alignItems:'center', gap:'0.5rem', color:'var(--forest)', fontWeight:600, fontSize:'0.9rem', padding:'0.75rem 1.25rem', width:'100%', textAlign:'left'}}>
-                    <span style={{fontSize:'0.9rem'}}>{showHowTo ? '▼' : '▶'}</span>
-                    <span>How to use this tool</span>
-                </button>
-                {showHowTo && (
-                    <div style={{padding:'0 1.25rem 1.25rem 1.25rem', borderTop:'1px solid #f0f0f0'}}>
-                        <div style={{display:'grid', gridTemplateColumns:'repeat(auto-fit, minmax(200px, 1fr))', gap:'1rem', marginTop:'1rem'}}>
-                            {[
-                                { icon:'🌊', step:'1', title:'Sheet loads automatically', desc:'Saturday run locations load from Google Sheets on open. Tide table loads top-right.' },
-                                { icon:'📍', step:'2', title:'Choose locations', desc:'Tuesday is fixed. Pick Thursday and Saturday from the dropdowns.' },
-                                { icon:'📸', step:'3', title:'Upload photos (optional)', desc:'Add a photo to any day\'s card. Required to generate an Instagram image.' },
-                                { icon:'✨', step:'4', title:'Generate Posts', desc:'Click Generate Posts to fetch live tide and weather for all three days.' },
-                                { icon:'📋', step:'5', title:'Copy your content', desc:'Copy Caption for Instagram/Facebook, Copy Email for the weekly email.' },
-                                { icon:'🖼️', step:'6', title:'Download Instagram image', desc:'Upload a photo first, then click Download Image. Logo, weather and location added automatically.' },
-                            ].map(item => (
-                                <div key={item.step} style={{display:'flex', gap:'0.75rem', alignItems:'flex-start'}}>
-                                    <div style={{fontSize:'1.4rem', flexShrink:0}}>{item.icon}</div>
-                                    <div>
-                                        <div style={{fontWeight:700, fontSize:'0.8rem', color:'var(--forest)', marginBottom:'0.2rem'}}>
-                                            <span style={{background:'var(--gold)', borderRadius:'50%', width:'16px', height:'16px', display:'inline-flex', alignItems:'center', justifyContent:'center', fontSize:'0.65rem', fontWeight:800, marginRight:'0.3rem'}}>{item.step}</span>
-                                            {item.title}
-                                        </div>
-                                        <div style={{fontSize:'0.78rem', color:'#555', lineHeight:'1.4'}}>{item.desc}</div>
-                                    </div>
-                                </div>
-                            ))}
-                        </div>
-                        <div style={{marginTop:'0.75rem', paddingTop:'0.75rem', borderTop:'1px solid #f0f0f0', display:'flex', gap:'1.5rem', flexWrap:'wrap'}}>
-                            <span style={{fontSize:'0.75rem', color:'#666'}}>🐕 Dogs: column F of sheet</span>
-                            <span style={{fontSize:'0.75rem', color:'#666'}}>🌊 Tides: column M (tidal location)</span>
-                            <span style={{fontSize:'0.75rem', color:'#666'}}>📍 Start location: column J</span>
-                        </div>
-                    </div>
-                )}
-            </div>
+            
 
             <div className="posts-grid">
                 {posts.map((post, index) => (
