@@ -230,20 +230,29 @@ function App() {
         }
         if (!bestLoc) return null;
         const values = bestLoc.values || [];
-        // Find nearest low tide to run time
+        if (!values.length) return null;
+        const runMs = runTime.getTime();
+        const TWO_HOURS = 2 * 3600000;
+        const FOUR_DAYS = 4 * 86400000;
+
+        // 1. First look for any tide (high or low) within 2 hours of run start
+        const nearby = values.filter(v => Math.abs(new Date(v.time) - runMs) <= TWO_HOURS);
+        nearby.sort((a, b) => Math.abs(new Date(a.time) - runMs) - Math.abs(new Date(b.time) - runMs));
+
+        // 2. Fall back to nearest low tide within 4 days
         let lows = values.filter(v => v.type && v.type.toUpperCase() === 'LOW');
         if (!lows.length) lows = values.filter((v,i) => i>0 && i<values.length-1 && v.value < values[i-1].value && v.value < values[i+1].value);
-        if (!lows.length) return null;
-        const runMs = runTime.getTime();
         lows.sort((a,b) => Math.abs(new Date(a.time)-runMs) - Math.abs(new Date(b.time)-runMs));
-        const best = lows[0];
-        // Only use if within 4 days of run (cache covers 7 days)
-        if (Math.abs(new Date(best.time) - runMs) > 4 * 86400000) return null;
+
+        const best = nearby.length ? nearby[0] : (lows.length && Math.abs(new Date(lows[0].time) - runMs) <= FOUR_DAYS ? lows[0] : null);
+        if (!best) return null;
         const isBefore = new Date(best.time) < runTime;
         const arrow = best.type && best.type.toUpperCase() === 'HIGH' ? '▲' : '▼';
         const tLabel = best.type && best.type.toUpperCase() === 'HIGH' ? 'High' : 'Low';
         const localTime = new Date(best.time).toLocaleTimeString('en-NZ', { hour:'numeric', minute:'2-digit', hour12:true, timeZone:'Pacific/Auckland' });
-        return `${best.value.toFixed(1)}m (${arrow}${tLabel} ${localTime}${isBefore?' past':''})`;
+        const isNearby = nearby.length && nearby[0] === best;
+        const nearbyTag = isNearby ? ' ⚠️' : '';
+        return `${best.value.toFixed(1)}m (${arrow}${tLabel} ${localTime}${isBefore?' past':''}${nearbyTag})`;
     };
 
     const FIXED_TIDE_RUNS = [
