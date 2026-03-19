@@ -2,9 +2,9 @@ name: Fetch Weekly Tide Data
 
 on:
   schedule:
-    - cron: '0 13 * * 1'   # Monday 2am NZT (UTC+13)
+    - cron: '0 13 * * 1'   # Monday 2am NZT
     - cron: '0 13 * * 4'   # Thursday 2am NZT
-  workflow_dispatch:         # Allow manual trigger from GitHub UI
+  workflow_dispatch:
 
 jobs:
   fetch-tides:
@@ -16,13 +16,25 @@ jobs:
       - name: Checkout repo
         uses: actions/checkout@v4
 
-      - name: Fetch tide data from LINZ (free, no API key)
+      - name: Fetch tide data from LINZ
         run: |
           python3 << 'PYEOF'
           import urllib.request, json, datetime
 
-          def fetch_linz_csv(year):
-              url = f"https://static.charts.linz.govt.nz/tide-tables/maj-ports/csv/Auckland%20{year}.csv"
+          # LINZ stations needed for HRBR runs
+          # onehunga = Manukau Harbour (Cornwallis, Huia, Laingholm, Mill Bay, Whatipu, Whitford)
+          # auckland = Waitemata/east coast/north shore/Hauraki Gulf (Browns Bay, Bucklands Beach,
+          #            Castor Bay, Devonport, Kohimarama, Little Shoal Bay, Mahurangi, Matiatia,
+          #            Waiheke, Weiti River)
+          # anawhata = West coast ocean (Piha, Te Henga/Bethells, Karekare, Muriwai)
+          STATIONS = {
+              'auckland':  { 'csv': 'Auckland',  'lat': -36.8500, 'lng': 174.7667 },
+              'onehunga':  { 'csv': 'Onehunga',  'lat': -36.9333, 'lng': 174.7833 },
+              'anawhata':  { 'csv': 'Anawhata',  'lat': -36.9000, 'lng': 174.4500 },
+          }
+
+          def fetch_linz_csv(name, year):
+              url = f"https://static.charts.linz.govt.nz/tide-tables/maj-ports/csv/{name.replace(' ', '%20')}%20{year}.csv"
               req = urllib.request.Request(url, headers={'User-Agent': 'HRBR-Helper/1.0'})
               with urllib.request.urlopen(req, timeout=15) as resp:
                   return resp.read().decode('utf-8-sig')
@@ -59,30 +71,34 @@ jobs:
 
           today = datetime.date.today()
           year = today.year
-          print(f"Fetching LINZ tide data for {year}...")
-          tides = []
-          for y in ([year, year + 1] if today.month >= 11 else [year]):
-              try:
-                  tides += parse_linz_csv(fetch_linz_csv(y))
-                  print(f"  OK {y}: {len(tides)} entries so far")
-              except Exception as e:
-                  print(f"  FAIL {y}: {e}")
+          years = [year, year + 1] if today.month >= 11 else [year]
 
           output = {
               'generated': datetime.datetime.utcnow().isoformat() + 'Z',
               'startDate': today.isoformat(),
               'source': 'LINZ',
-              'locations': {
-                  'auckland': {
-                      'lat': -36.8485,
-                      'lng': 174.7633,
-                      'values': tides
-                  }
-              }
+              'locations': {}
           }
+
+          for key, info in STATIONS.items():
+              tides = []
+              for y in years:
+                  try:
+                      tides += parse_linz_csv(fetch_linz_csv(info['csv'], y))
+                      print(f"  OK {key} {y}: {len(tides)} entries")
+                  except Exception as e:
+                      print(f"  FAIL {key} {y}: {e}")
+              output['locations'][key] = {
+                  'lat': info['lat'],
+                  'lng': info['lng'],
+                  'values': tides
+              }
+
           with open('tides.json', 'w') as f:
               json.dump(output, f)
-          print(f"Done: {len(tides)} tide entries written to tides.json")
+
+          total = sum(len(v['values']) for v in output['locations'].values())
+          print(f"Done: {total} total tide entries across {len(output['locations'])} stations")
           PYEOF
 
       - name: Commit tides.json
