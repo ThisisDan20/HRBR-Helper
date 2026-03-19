@@ -284,20 +284,22 @@ function App() {
         setTideTableLoading(true);
         const effectiveCache = cache !== undefined ? cache : tideCache;
         const runs = [...FIXED_TIDE_RUNS];
-        for (const loc of (satLocs || saturdayLocations)) {
-            if (!loc.coastal && !loc.tidalLocation) continue;
-            let lat = loc.lat, lng = loc.lng, station = null;
-            if (loc.tidalLocation) {
-                const ref = COASTAL_COORDS[loc.tidalLocation.toLowerCase().trim()];
-                if (ref) { lat = ref.lat; lng = ref.lng; station = ref.station; }
-            } else {
-                const ref = getCoastalCoords(loc.name, loc.meetingSpot || '', '');
-                if (ref) { lat = ref.lat; lng = ref.lng; station = ref.station; }
-            }
-            if (!lat || !lng) continue;
-            const dName = loc.tidalLocation || loc.name;
-            if (!runs.find(r => r.name.toLowerCase()===dName.toLowerCase() && r.day==='Saturday'))
-                runs.push({ name: dName, day: 'Saturday', hour: 14, min: 0, lat, lng, station });
+        // Saturday: show one row per LINZ station (not per location)
+        // Each station row covers multiple run locations
+        const SAT_STATIONS = [
+            { name: 'Onehunga (Manukau Harbour)', day: 'Saturday', hour: 14, min: 0,
+              lat: -36.9333, lng: 174.7833, station: 'onehunga',
+              desc: 'Cornwallis, Huia, Laingholm, Mill Bay, Whatipu, Whitford, Armour Bay' },
+            { name: 'Anawhata (West coast)', day: 'Saturday', hour: 14, min: 0,
+              lat: -36.9000, lng: 174.4500, station: 'anawhata',
+              desc: 'Piha, Te Henga, Karekare, Muriwai' },
+            { name: 'Auckland (Waitemata/Gulf)', day: 'Saturday', hour: 14, min: 0,
+              lat: -36.8500, lng: 174.7667, station: 'auckland',
+              desc: 'Browns Bay, Bucklands Beach, Castor Bay, Devonport, Doves Bay, Kohimarama, Little Shoal Bay, Mahurangi, Matiatia, Waiheke, Weiti River' },
+        ];
+        for (const s of SAT_STATIONS) {
+            if (!runs.find(r => r.station === s.station && r.day === 'Saturday'))
+                runs.push(s);
         }
         const results = await Promise.all(runs.map(r => fetchTideForRow(r.name, r.day, r.hour, r.min, r.lat, r.lng, effectiveCache, r.station)));he)));
         const dayOrder = { Tuesday:1, Thursday:2, Saturday:3 };
@@ -1179,7 +1181,7 @@ function App() {
                             <div style={{color:'#6c757d', fontSize:'0.82rem'}}>No coastal locations found.</div>
                         ) : (
                             <table style={{width:'100%', borderCollapse:'collapse', fontSize:'0.78rem', tableLayout:'fixed'}}>
-                                <colgroup><col style={{width:'40%'}}/><col style={{width:'15%'}}/><col style={{width:'13%'}}/><col style={{width:'32%'}}/></colgroup>
+                                <colgroup><col style={{width:'50%'}}/><col style={{width:'13%'}}/><col style={{width:'11%'}}/><col style={{width:'26%'}}/></colgroup>
                                 <thead><tr style={{borderBottom:'1px solid #dee2e6'}}>
                                     {['Location','Day','Start','Tide'].map(h => <th key={h} style={{textAlign:'left', padding:'0.25rem 0.35rem', color:'var(--forest)', fontWeight:600}}>{h}</th>)}
                                 </tr></thead>
@@ -1189,7 +1191,10 @@ function App() {
                                         const tideColor = row.tide.includes('▲') ? '#c05c00' : row.tide.includes('▼') ? '#1a5f3a' : row.tide.startsWith('Err') ? '#dc3545' : '#333';
                                         return (
                                             <tr key={i} style={{borderBottom:'1px solid #f0f0f0'}}>
-                                                <td style={{padding:'0.25rem 0.35rem', fontWeight:500, whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis', textAlign:'left'}}>{row.name}</td>
+                                                <td style={{padding:'0.25rem 0.35rem', fontWeight:500, textAlign:'left'}}>
+                                                    <div>{row.name}</div>
+                                                    {row.desc && <div style={{fontSize:'0.68rem', color:'#888', fontWeight:400, marginTop:'0.1rem'}}>{row.desc}</div>}
+                                                </td>
                                                 <td style={{padding:'0.25rem 0.35rem', whiteSpace:'nowrap', textAlign:'left'}}><span style={{background:{Tuesday:'#e0f2fe',Thursday:'#d1fae5',Saturday:'#ffedd5'}[row.day]||'#eee', padding:'0.1rem 0.35rem', borderRadius:'4px', fontSize:'0.7rem', fontWeight:600}}>{row.day.slice(0,3)}</span></td>
                                                 <td style={{padding:'0.25rem 0.35rem', color:'#6c757d', whiteSpace:'nowrap', textAlign:'left'}}>{runTimeStr}</td>
                                                 <td style={{padding:'0.25rem 0.35rem', fontWeight:600, color:tideColor, whiteSpace:'nowrap', textAlign:'left'}}>{row.tide}</td>
