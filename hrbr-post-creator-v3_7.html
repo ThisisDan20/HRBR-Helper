@@ -289,13 +289,13 @@ function App() {
         const SAT_STATIONS = [
             { name: 'Onehunga (Manukau Harbour)', day: 'Saturday', hour: 14, min: 0,
               lat: -36.9333, lng: 174.7833, station: 'onehunga',
-              desc: 'Cornwallis, Huia, Laingholm, Mill Bay, Whatipu, Whitford, Armour Bay' },
-            { name: 'Anawhata (West coast)', day: 'Saturday', hour: 14, min: 0,
+              desc: 'Cornwallis, Huia, Laingholm, Mill Bay, Whatipu, Onehunga, Whitford, Weymouth, Clarks Beach, Armour Bay' },
+            { name: 'Anawhata (West coast ocean)', day: 'Saturday', hour: 14, min: 0,
               lat: -36.9000, lng: 174.4500, station: 'anawhata',
               desc: 'Piha, Te Henga, Karekare, Muriwai' },
-            { name: 'Auckland (Waitemata/Gulf)', day: 'Saturday', hour: 14, min: 0,
+            { name: 'Auckland (Waitemata/east/north/gulf)', day: 'Saturday', hour: 14, min: 0,
               lat: -36.8500, lng: 174.7667, station: 'auckland',
-              desc: 'Browns Bay, Bucklands Beach, Castor Bay, Devonport, Doves Bay, Kohimarama, Little Shoal Bay, Mahurangi, Matiatia, Waiheke, Weiti River' },
+              desc: 'Browns Bay, Bucklands Beach, Castor Bay, Devonport Naval Base, Doves Bay, Kohimarama, Little Shoal Bay, Mahurangi Harbour, Matiatia Bay, Waiheke, Weiti River Entrance' },
         ];
         for (const s of SAT_STATIONS) {
             if (!runs.find(r => r.station === s.station && r.day === 'Saturday'))
