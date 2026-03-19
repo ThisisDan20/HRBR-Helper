@@ -301,7 +301,7 @@ function App() {
             if (!runs.find(r => r.station === s.station && r.day === 'Saturday'))
                 runs.push(s);
         }
-        const results = await Promise.all(runs.map(r => fetchTideForRow(r.name, r.day, r.hour, r.min, r.lat, r.lng, effectiveCache, r.station)));he)));
+        const results = await Promise.all(runs.map(r => fetchTideForRow(r.name, r.day, r.hour, r.min, r.lat, r.lng, effectiveCache, r.station)));
         const dayOrder = { Tuesday:1, Thursday:2, Saturday:3 };
         results.sort((a,b) => dayOrder[a.day]-dayOrder[b.day] || a.name.localeCompare(b.name));
         setTideTable(results);
