@@ -152,7 +152,7 @@ const loadSheetJsonp = () => new Promise((resolve, reject) => {
     const nextThursday = getNextDayOfWeek(4);
     const nextSaturday = getNextDayOfWeek(6);
     
-    const TUESDAY_LOCATION = { name: "Mill Bay, Parau", link: "https://maps.app.goo.gl/yFLAw8GfskL5cRHC8", meetingSpot: "Mill Bay 800 Huia Road, Cornwallis, Auckland 0604", lat: -36.9985, lng: 174.5320 };
+    const TUESDAY_LOCATION = { name: "Mill Bay, Parau", link: "https://maps.app.goo.gl/yFLAw8GfskL5cRHC8", meetingSpot: "Mill Bay 800 Huia Road, Cornwallis, Auckland 0604", lat: -36.9985, lng: 174.5320, dogFriendly: "Dogs welcome." };
 const TUESDAY_TEXT = `Tuesday ${nextTuesday} Mill Bay 5:15pm
 First entrance after Parau. An hour of bush and beach to Cornwallis and back, 8km.`;
 
@@ -160,17 +160,20 @@ const THURSDAY_LOCATIONS = [
     { name: "Huia Rd/Exhibition Drive", link: "https://maps.app.goo.gl/cihV7R2A1bV6hEGo6",
       meetingSpot: "Opposite 394 Huia Road, Titirangi, Auckland 0604",
       lat: -36.9503, lng: 174.5711,
+      dogFriendly: "Dogs ok, on lead.",
       text: `Thursday ${nextThursday} 5:45pm - Huia Rd/Exhibition Drive
 Meet corner Huia Road, Exhibition Drive for a fun 6km/1hr jaunt around Arataki.` },
     { name: "Laingholm Beach", link: "https://maps.app.goo.gl/UPvJ3NvmEZCmLVsY8",
       meetingSpot: "Laingholm Beach, Laingholm Drive, Auckland 0604",
       lat: -36.9701, lng: 174.5501,
+      dogFriendly: "Dogs welcome.",
       text: `Thursday ${nextThursday} 6pm. Laingholm Beach 
 7km beach, bush and coastal bash.
 Meet: Laingholm beach on the shells.` },
     { name: "Curry Night, Waikumete, Glen Eden", link: "https://maps.app.goo.gl/BV1iQqPVdTJ5aGMK6",
       meetingSpot: "Thip Thai Restaurant, 26 Glenmall Place, Glen Eden, Auckland 0602",
       lat: -36.9169, lng: 174.6419,
+      dogFriendly: "Dogs ok, on lead.",
       text: `Thursday ${nextThursday} Curry night, Waikumete
 Meet outside Thip Thai restaurant at 6:00pm.
 1hr, 7km trails, tracks, gravel and graves run around Waikumete cemetery.` }
@@ -232,11 +235,11 @@ function App() {
         const values = bestLoc.values || [];
         if (!values.length) return null;
         const runMs = runTime.getTime();
-        const TWO_HOURS = 3 * 3600000;
+        const NEARBY_WINDOW = 3 * 3600000;
         const FOUR_DAYS = 4 * 86400000;
 
         // 1. First look for any tide (high or low) within 2 hours of run start
-        const nearby = values.filter(v => Math.abs(new Date(v.time) - runMs) <= TWO_HOURS);
+        const nearby = values.filter(v => Math.abs(new Date(v.time) - runMs) <= NEARBY_WINDOW);
         nearby.sort((a, b) => Math.abs(new Date(a.time) - runMs) - Math.abs(new Date(b.time) - runMs));
 
         // 2. Fall back to nearest low tide within 4 days
@@ -343,8 +346,7 @@ function App() {
             const iCoastal     = colIdx('coastal');
             const iTidalLoc    = colIdx('tidal location') >= 0 ? colIdx('tidal location') : 12;
             const iDogFriendly = colIdx('dog friendly') >= 0 ? colIdx('dog friendly') : 5;
-            const iDogReason   = colIdx('no dogs reason') >= 0 ? colIdx('no dogs reason') : colIdx('dog reason');
-            const iDifficulty  = colIdx('difficulty');
+                    const iDifficulty  = colIdx('difficulty');
 
             const getCell = (row, idx) => {
                 if (idx < 0 || !row.c || !row.c[idx]) return '';
@@ -361,12 +363,8 @@ function App() {
                 const mapLink     = getCell(row, iLink);
                 const coastal     = getCell(row, iCoastal).toLowerCase() === 'yes';
                 const tidalLocation = getCell(row, iTidalLoc);
-                const dogRaw      = getCell(row, iDogFriendly).toLowerCase().trim();
-                const dogFriendly = dogRaw === 'yes' ? 'yes'
-                    : (dogRaw.includes('on lead') || dogRaw.includes('lead')) ? 'on lead'
-                    : (dogRaw === 'no' || dogRaw === '') ? 'no' : dogRaw;
-                const dogReason   = getCell(row, iDogReason);
-                const difficulty  = getCell(row, iDifficulty);
+                const dogFriendly = getCell(row, iDogFriendly).trim();
+                  const difficulty  = getCell(row, iDifficulty);
                 let lat = null, lng = null;
                 if (mapLink) {
                     const m = mapLink.match(/[@!3d](-?\d+\.\d+)[,!4d](-?\d+\.\d+)/)
@@ -374,7 +372,7 @@ function App() {
                     if (m) { lat = parseFloat(m[1]); lng = parseFloat(m[2]); }
                 }
                 if (available && name) {
-                    locations.push({ name, description, link: mapLink, meetingSpot, lat, lng, coastal, tidalLocation, dogFriendly, dogReason, difficulty });
+                    locations.push({ name, description, link: mapLink, meetingSpot, lat, lng, coastal, tidalLocation, dogFriendly, difficulty });
                     if (coastal) dbg('Coastal:', name, '| tidal ref:', tidalLocation || 'auto');
                 }
             }
@@ -486,15 +484,9 @@ function App() {
 
     const difficultyLine = (post) => post.difficulty ? `\n🏃 ${post.difficulty}` : '';
     const dogLine = (post) => {
-        const d = post.location ? (post.dogFriendly || post.location.dogFriendly) : post.dogFriendly;
-        if (d === true || d === 'yes') return '\n🐕 Dog friendly';
-        if (typeof d === 'string' && (d.includes('on lead') || d.includes('lead'))) return '\n🐕 Dogs welcome, but under control';
-        if (d === 'no' || !d) {
-            const reason = post.location && post.location.dogReason;
-            if (reason) return `\n🚫 No dogs: ${reason}`;
-            return '';
-        }
-        return `\n🐕 Dogs: ${d}`;
+        const d = (post.location ? (post.dogFriendly || post.location.dogFriendly) : post.dogFriendly) || '';
+        if (!d || d.trim() === '') return '';
+        return `\n🐕 ${d.trim()}`;
     };
 
     const generateCaption = (post) => {
