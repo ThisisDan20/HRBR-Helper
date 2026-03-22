@@ -1,0 +1,165 @@
+name: Test HRBR Post Creator
+
+on:
+  push:
+    paths:
+      - 'hrbr-post-creator-v*.html'
+  pull_request:
+    paths:
+      - 'hrbr-post-creator-v*.html'
+  workflow_dispatch:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Run HRBR tests
+        run: |
+          python3 << 'PYEOF'
+          import sys, re, glob
+
+          # Find the HTML file
+          files = sorted(glob.glob('hrbr-post-creator-v*.html'))
+          if not files:
+              print('❌ FAIL: No hrbr-post-creator-v*.html file found')
+              sys.exit(1)
+          path = files[-1]
+          print(f'Testing: {path}\n')
+
+          with open(path, encoding='utf-8') as f:
+              c = f.read()
+
+          failures = []
+
+          def check(name, condition, detail=''):
+              if condition:
+                  print(f'  ✓ {name}')
+              else:
+                  print(f'  ✗ {name}{": " + detail if detail else ""}')
+                  failures.append(name)
+
+          # ── Structure ────────────────────────────────────────────────────
+          print('Structure:')
+          check('Single <script type="text/babel"> tag',
+                c.count('<script type="text/babel">') == 1)
+          check('File closes with </html>',
+                c.strip().endswith('</html>'))
+          check('Has <div id="root">',
+                '<div id="root">' in c)
+          check('ReactDOM.render present',
+                'ReactDOM.render' in c)
+          check('No doubled HTML (single <html> tag)',
+                c.count('<html') == 1)
+
+          # ── No banned/broken code ────────────────────────────────────────
+          print('\nNo banned code:')
+          check('No NIWA API calls',
+                'api.niwa.co.nz' not in c)
+          check('No CORS_PROXIES',
+                'CORS_PROXIES' not in c)
+          check('No fetchWithFallback',
+                'fetchWithFallback' not in c)
+          check('No direct LINZ browser fetch',
+                'static.charts.linz.govt.nz' not in c)
+          check('No stray base64 string at top level',
+                'iVBORw0KGgo' not in c.split('LOGO_DATA_URL')[0])
+
+          # ── Balanced braces/try-catch ────────────────────────────────────
+          print('\nSyntax:')
+          try_count = len(re.findall(r'\btry\s*\{', c))
+          catch_count = len(re.findall(r'\}\s*catch\s*\(', c))
+          check('Balanced try/catch blocks',
+                try_count == catch_count,
+                f'try={try_count} catch={catch_count}')
+
+          # ── Key functions ────────────────────────────────────────────────
+          print('\nKey functions:')
+          for fn in [
+              'getTideFromCache', 'loadSaturdayLocations', 'loadSheetJsonp',
+              'loadTideTable', 'fetchTideForRow', 'fetchTideInfo',
+              'generateCaption', 'generateInstagramImage', 'dogLine',
+              'difficultyLine', 'getCoastalCoords',
+          ]:
+              check(f'{fn} present', fn in c)
+
+          # ── Tide cache ───────────────────────────────────────────────────
+          print('\nTide cache:')
+          check('tides.json fetch present', "fetch('tides.json" in c)
+          check('NEARBY_WINDOW defined', 'NEARBY_WINDOW' in c)
+          check('Station param in getTideFromCache',
+                'getTideFromCache = (cache, lat, lng, runTime, station)' in c)
+          check('No TWO_HOURS leftover', 'TWO_HOURS' not in c)
+
+          # ── COASTAL_COORDS — all 18 sheet locations mapped ───────────────
+          print('\nCOASTAL_COORDS (18 sheet locations):')
+          sheet_locs = [
+              'browns bay', 'bucklands beach', 'castor bay', 'cornwallis',
+              'devonport naval base', 'doves bay', 'huia', 'kohimarama',
+              'laingholm', 'little shoal bay', 'mahurangi', 'matiatia bay',
+              'onehunga', 'piha', 'te henga', 'waiheke',
+              'weiti river', 'whitford',
+          ]
+          for loc in sheet_locs:
+              check(f"  '{loc}' mapped", loc in c.lower())
+
+          # ── Station assignments correct ──────────────────────────────────
+          print('\nStation assignments:')
+          onehunga_locs = ['cornwallis', 'huia', 'laingholm', 'mill bay', 'whatipu', 'whitford']
+          auckland_locs = ['browns bay', 'bucklands beach', 'castor bay', 'kohimarama']
+          anawhata_locs = ['piha', 'te henga', 'karekare', 'muriwai']
+          for loc in onehunga_locs:
+              # Check that the loc appears near 'onehunga' station tag in COASTAL_COORDS
+              pattern = rf"'{re.escape(loc)}'.*?station.*?'onehunga'"
+              check(f"  '{loc}' → onehunga", bool(re.search(pattern, c, re.DOTALL | re.IGNORECASE)))
+          for loc in auckland_locs:
+              pattern = rf"'{re.escape(loc)}'.*?station.*?'auckland'"
+              check(f"  '{loc}' → auckland", bool(re.search(pattern, c, re.DOTALL | re.IGNORECASE)))
+          for loc in anawhata_locs:
+              pattern = rf"'{re.escape(loc)}'.*?station.*?'anawhata'"
+              check(f"  '{loc}' → anawhata", bool(re.search(pattern, c, re.DOTALL | re.IGNORECASE)))
+
+          # ── SAT_STATIONS ─────────────────────────────────────────────────
+          print('\nSaturday tide table:')
+          check('SAT_STATIONS defined', 'SAT_STATIONS' in c)
+          check('Onehunga station row present',
+                "station: 'onehunga'" in c)
+          check('Auckland station row present',
+                "station: 'auckland'" in c)
+          check('Anawhata station row present',
+                "station: 'anawhata'" in c)
+          check('Onehunga desc lists Cornwallis',
+                'Cornwallis' in c and 'onehunga' in c)
+          check('Auckland desc lists Browns Bay',
+                'Browns Bay' in c)
+          check('Anawhata desc lists Piha',
+                'Piha' in c)
+
+          # ── Dog notes ────────────────────────────────────────────────────
+          print('\nDog notes:')
+          check('Tuesday dogFriendly set',
+                'TUESDAY_LOCATION' in c and 'dogFriendly' in c[c.find('TUESDAY_LOCATION'):c.find('TUESDAY_LOCATION')+350])
+          check('Thursday locations have dogFriendly',
+                c.count('dogFriendly') >= 4)
+          check('dogLine function present', 'const dogLine' in c)
+
+          # ── Logo ─────────────────────────────────────────────────────────
+          print('\nAssets:')
+          check('Logo embedded as base64',
+                'const LOGO_DATA_URL = "data:image/jpeg;base64,' in c)
+          check('Version string present',
+                'v3.7' in c)
+
+          # ── Result ───────────────────────────────────────────────────────
+          print(f'\n{"="*50}')
+          if failures:
+              print(f'FAILED — {len(failures)} check(s) failed:')
+              for f in failures:
+                  print(f'  • {f}')
+              sys.exit(1)
+          else:
+              print(f'ALL TESTS PASSED ({c.count(chr(10))} lines, {len(c)//1024}KB)')
+          PYEOF
