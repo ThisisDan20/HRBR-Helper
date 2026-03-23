@@ -152,7 +152,7 @@ const loadSheetJsonp = () => new Promise((resolve, reject) => {
     const nextThursday = getNextDayOfWeek(4);
     const nextSaturday = getNextDayOfWeek(6);
     
-    const TUESDAY_LOCATION = { name: "Mill Bay, Parau", link: "https://maps.app.goo.gl/yFLAw8GfskL5cRHC8", meetingSpot: "Mill Bay 800 Huia Road, Cornwallis, Auckland 0604", lat: -36.9985, lng: 174.5320, dogFriendly: "Dogs welcome." };
+    const TUESDAY_LOCATION = { name: "Mill Bay, Parau", link: "https://maps.app.goo.gl/yFLAw8GfskL5cRHC8", meetingSpot: "Mill Bay 800 Huia Road, Cornwallis, Auckland 0604", lat: -36.9985, lng: 174.5320, dogFriendly: "🐕 Dogs welcome." };
 const TUESDAY_TEXT = `Tuesday ${nextTuesday} Mill Bay 5:15pm
 First entrance after Parau. An hour of bush and beach to Cornwallis and back, 8km.`;
 
@@ -160,20 +160,20 @@ const THURSDAY_LOCATIONS = [
     { name: "Huia Rd/Exhibition Drive", link: "https://maps.app.goo.gl/cihV7R2A1bV6hEGo6",
       meetingSpot: "Opposite 394 Huia Road, Titirangi, Auckland 0604",
       lat: -36.9503, lng: 174.5711,
-      dogFriendly: "Dogs ok, on lead.",
+      dogFriendly: "🐕 Dogs ok, on lead.",
       text: `Thursday ${nextThursday} 5:45pm - Huia Rd/Exhibition Drive
 Meet corner Huia Road, Exhibition Drive for a fun 6km/1hr jaunt around Arataki.` },
     { name: "Laingholm Beach", link: "https://maps.app.goo.gl/UPvJ3NvmEZCmLVsY8",
       meetingSpot: "Laingholm Beach, Laingholm Drive, Auckland 0604",
       lat: -36.9701, lng: 174.5501,
-      dogFriendly: "Dogs welcome.",
+      dogFriendly: "🐕 Dogs welcome.",
       text: `Thursday ${nextThursday} 6pm. Laingholm Beach 
 7km beach, bush and coastal bash.
 Meet: Laingholm beach on the shells.` },
     { name: "Curry Night, Waikumete, Glen Eden", link: "https://maps.app.goo.gl/BV1iQqPVdTJ5aGMK6",
       meetingSpot: "Thip Thai Restaurant, 26 Glenmall Place, Glen Eden, Auckland 0602",
       lat: -36.9169, lng: 174.6419,
-      dogFriendly: "Dogs ok, on lead.",
+      dogFriendly: "🐕 Dogs ok, on lead.",
       text: `Thursday ${nextThursday} Curry night, Waikumete
 Meet outside Thip Thai restaurant at 6:00pm.
 1hr, 7km trails, tracks, gravel and graves run around Waikumete cemetery.` }
@@ -486,8 +486,7 @@ function App() {
     const dogLine = (post) => {
         const d = (post.location ? (post.dogFriendly || post.location.dogFriendly) : post.dogFriendly) || '';
         if (!d || d.trim() === '') return '';
-        const isNoDogs = d.trim().toLowerCase().startsWith('no dogs');
-        return `\n${isNoDogs ? '🚫🐕' : '🐕'} ${d.trim()}`;
+        return `\n${d.trim()}`;
     };
 
     const generateCaption = (post) => {
