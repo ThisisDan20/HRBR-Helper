@@ -486,7 +486,8 @@ function App() {
     const dogLine = (post) => {
         const d = (post.location ? (post.dogFriendly || post.location.dogFriendly) : post.dogFriendly) || '';
         if (!d || d.trim() === '') return '';
-        return `\n🐕 ${d.trim()}`;
+        const isNoDogs = d.trim().toLowerCase().startsWith('no dogs');
+        return `\n${isNoDogs ? '🚫🐕' : '🐕'} ${d.trim()}`;
     };
 
     const generateCaption = (post) => {
