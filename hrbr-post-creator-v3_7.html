@@ -489,12 +489,6 @@ function App() {
         return `\n${d.trim()}`;
     };
 
-    const formatEmailBody = (text) => {
-        // Ensure 🏃 and dog emoji lines are on their own lines (not inline)
-        return text
-            .replace(/ (🏃)/g, '\n$1')
-            .replace(/ (🐕|🚫🐕)/g, '\n$1');
-    };
         const hashtags = "#running #trailrunning #aucklandrunning #runningcommunity #grouprun #outdoors";
         const tide = tideInfo[post.day];
         const weather = weatherInfo[post.day];
@@ -839,7 +833,7 @@ function App() {
             const weather = weatherInfo[post.day];
             const tideText = tide ? `\n🌊 Low Tide: ${tide}` : '';
             const address = post.location.meetingSpot || post.location.name;
-            const bodyText = formatEmailBody(textWithWeather(post.text, weather));
+            const bodyText = textWithWeather(post.text, weather);
             const mapLine = post.location.link ? `\n🗺️ ${post.location.link}` : '';
             out += `\n\n${bodyText}${difficultyLine(post)}${dogLine(post)}${tideText}\n📍 ${address}.${mapLine}`;
         });
@@ -853,14 +847,14 @@ function App() {
             const weather = weatherInfo[post.day];
             const tideText = tide ? `<br>🌊 Low Tide: ${tide}` : '';
             const address = post.location.meetingSpot || post.location.name;
-            const bodyText = formatEmailBody(textWithWeather(post.text, weather));
+            const bodyText = textWithWeather(post.text, weather);
             const lines = bodyText.split('\n').filter(l => l.trim());
             const firstLine = `<strong>${lines[0]}</strong>`;
             const rest = lines.slice(1).join('<br>');
             const mapLine = post.location.link 
                 ? `<br>🗺️ <a href="${post.location.link}" target="_blank">${post.location.link}</a>` : '';
             const diffHtml = post.difficulty ? `<br>🏃 ${post.difficulty}` : '';
-            const dogHtml = dogLine(post).replace(/\\n/g, '<br>');
+            const dogHtml = dogLine(post).replace(/\n/g, '<br>');
             out += `<br><br>${firstLine}${rest ? '<br>' + rest : ''}${diffHtml}${dogHtml}${tideText}<br>📍 ${address}.${mapLine}`;
         });
         return out;
