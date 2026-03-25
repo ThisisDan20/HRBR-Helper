@@ -489,12 +489,8 @@ function App() {
         return `\n${d.trim()}`;
     };
 
-    const formatEmailBody = (text) => {
-        // Ensure 🏃 and dog emoji lines are on their own lines (not inline)
-        return text
-            .replace(/ (🏃)/g, '\n$1')
-            .replace(/ (🐕|🚫🐕)/g, '\n$1');
-    };
+
+    const generateCaption = (post) => {
         const hashtags = "#running #trailrunning #aucklandrunning #runningcommunity #grouprun #outdoors";
         const tide = tideInfo[post.day];
         const weather = weatherInfo[post.day];
@@ -506,102 +502,21 @@ function App() {
     };
     
     const generateSubjectLine = (posts) => {
-        // Extract day and location, with shortened day names
         const dayShort = { 'Tuesday': 'Tues', 'Thursday': 'Thurs', 'Saturday': 'Sat' };
-        
         const locations = posts.map(post => {
             const dayMatch = post.text.match(/(Tuesday|Thursday|Saturday)/i);
             const day = dayMatch ? dayMatch[1] : post.day;
             const shortDay = dayShort[day] || day;
-            
-            // Shorten common location words to fit 255 char limit
             let location = post.location.name;
             location = location.replace(/Exhibition Drive/g, 'Exhibition Dr');
             location = location.replace(/Regional Park/g, 'Reg Park');
             location = location.replace(/Reserve/g, 'Res');
             location = location.replace(/Cemetery/g, 'Cem');
-            
             return `${shortDay}: ${location}`;
         });
-        
-        const subject = `This week's runs - ${locations.join(' / ')}`;
-        
-        // Ensure under 255 chars
-        if (subject.length > 255) {
-            // Further truncate if needed
-            return subject.substring(0, 252) + '...';
-        }
-        
+        const subject = `This week\'s runs - ${locations.join(' / ')}`;
+        if (subject.length > 255) return subject.substring(0, 252) + '...';
         return subject.replace('This week\'s runs -', 'HRBR -');
-    };
-    
-
-    // Known coastal reference coords for tide lookups
-    // Used when a run visits the coast but starts inland
-    // station: which LINZ CSV to use.
-    //   'onehunga' = Manukau Harbour (west-facing: Cornwallis, Huia, Laingholm, Mill Bay)
-    //   'auckland' = Waitemata / east coast / north shore / Hauraki Gulf
-    //   'anawhata' = west coast ocean (Piha, Karekare, Te Henga/Bethells, Muriwai)
-    const COASTAL_COORDS = {
-        // ── Manukau Harbour → Onehunga ──────────────────────────────────
-        'cornwallis':        { lat: -37.0000, lng: 174.5630, station: 'onehunga' },
-        'huia':              { lat: -36.9990, lng: 174.5600, station: 'onehunga' },
-        'huia bay':          { lat: -36.9990, lng: 174.5600, station: 'onehunga' },
-        'little huia':       { lat: -37.0150, lng: 174.5560, station: 'onehunga' },
-        'mill bay':          { lat: -36.9985, lng: 174.5320, station: 'onehunga' },
-        'laingholm':         { lat: -36.9701, lng: 174.5501, station: 'onehunga' },
-        'armour bay':        { lat: -36.9400, lng: 174.5150, station: 'onehunga' },
-        'kaitarakihi':       { lat: -36.9985, lng: 174.5320, station: 'onehunga' },
-        'whatipu':           { lat: -37.0481, lng: 174.4511, station: 'onehunga' },
-        'onehunga':          { lat: -36.9333, lng: 174.7833, station: 'onehunga' },
-        'weymouth':          { lat: -37.0300, lng: 174.8700, station: 'onehunga' },
-        'clarks beach':      { lat: -37.1500, lng: 174.7300, station: 'onehunga' },
-        'whitford':          { lat: -36.9000, lng: 175.0167, station: 'onehunga' },
-        // ── West coast ocean → Anawhata ─────────────────────────────────
-        'piha':              { lat: -36.9538, lng: 174.4677, station: 'anawhata' },
-        'karekare':          { lat: -36.9753, lng: 174.4631, station: 'anawhata' },
-        'te henga':          { lat: -36.8987, lng: 174.4314, station: 'anawhata' },
-        'bethells':          { lat: -36.8987, lng: 174.4314, station: 'anawhata' },
-        'muriwai':           { lat: -36.7936, lng: 174.4473, station: 'anawhata' },
-        // ── Waitemata / East coast / North Shore / Hauraki Gulf → Auckland
-        'browns bay':        { lat: -36.7120, lng: 174.7400, station: 'auckland' },
-        'bucklands beach':   { lat: -36.8840, lng: 174.9050, station: 'auckland' },
-        'castor bay':        { lat: -36.7580, lng: 174.7610, station: 'auckland' },
-        'devonport':         { lat: -36.8290, lng: 174.8000, station: 'auckland' },
-        'devonport naval base': { lat: -36.8290, lng: 174.8000, station: 'auckland' },
-        'doves bay':         { lat: -36.6500, lng: 174.5500, station: 'auckland' },
-        'kohimarama':        { lat: -36.8540, lng: 174.8380, station: 'auckland' },
-        'little shoal bay':  { lat: -36.8300, lng: 174.7500, station: 'auckland' },
-        'mahurangi harbour': { lat: -36.4900, lng: 174.7167, station: 'auckland' },
-        'mahurangi':         { lat: -36.4900, lng: 174.7167, station: 'auckland' },
-        'matiatia bay':      { lat: -36.7833, lng: 174.9833, station: 'auckland' },
-        'matiatia':          { lat: -36.7833, lng: 174.9833, station: 'auckland' },
-        'waiheke':           { lat: -36.7833, lng: 174.9833, station: 'auckland' },
-        'weiti river':       { lat: -36.6500, lng: 174.7167, station: 'auckland' },
-        'weiti river entrance': { lat: -36.6500, lng: 174.7167, station: 'auckland' },
-        'takapuna':          { lat: -36.7870, lng: 174.7760, station: 'auckland' },
-        'murrays bay':       { lat: -36.7290, lng: 174.7530, station: 'auckland' },
-        'mairangi bay':      { lat: -36.7380, lng: 174.7450, station: 'auckland' },
-        'long bay':          { lat: -36.6900, lng: 174.7340, station: 'auckland' },
-        'torbay':            { lat: -36.6950, lng: 174.7370, station: 'auckland' },
-        'milford':           { lat: -36.7700, lng: 174.7680, station: 'auckland' },
-        'cheltenham':        { lat: -36.8290, lng: 174.8000, station: 'auckland' },
-        'mission bay':       { lat: -36.8540, lng: 174.8280, station: 'auckland' },
-        'st heliers':        { lat: -36.8540, lng: 174.8480, station: 'auckland' },
-        'half moon bay':     { lat: -36.8900, lng: 174.9100, station: 'auckland' },
-        'maraetai':          { lat: -36.8700, lng: 175.0500, station: 'auckland' },
-        // Fallback
-        'beach':             { lat: -36.9701, lng: 174.5501, station: 'onehunga' },
-    };
-
-    // Returns {lat, lng, station} of the nearest coastal reference for tide lookups
-    const getCoastalCoords = (locationName, meetingSpot, description) => {
-        const allText = `${locationName} ${meetingSpot} ${description}`.toLowerCase();
-        for (const [key, coords] of Object.entries(COASTAL_COORDS)) {
-            if (key !== 'beach' && allText.includes(key)) return coords;
-        }
-        if (allText.includes('beach')) return COASTAL_COORDS['beach'];
-        return null;
     };
 
     const COASTAL_PLACE_KEYWORDS = Object.keys(COASTAL_COORDS).filter(k => k !== 'beach');
@@ -839,7 +754,7 @@ function App() {
             const weather = weatherInfo[post.day];
             const tideText = tide ? `\n🌊 Low Tide: ${tide}` : '';
             const address = post.location.meetingSpot || post.location.name;
-            const bodyText = formatEmailBody(textWithWeather(post.text, weather));
+            const bodyText = textWithWeather(post.text, weather);
             const mapLine = post.location.link ? `\n🗺️ ${post.location.link}` : '';
             out += `\n\n${bodyText}${difficultyLine(post)}${dogLine(post)}${tideText}\n📍 ${address}.${mapLine}`;
         });
@@ -853,14 +768,14 @@ function App() {
             const weather = weatherInfo[post.day];
             const tideText = tide ? `<br>🌊 Low Tide: ${tide}` : '';
             const address = post.location.meetingSpot || post.location.name;
-            const bodyText = formatEmailBody(textWithWeather(post.text, weather));
+            const bodyText = textWithWeather(post.text, weather);
             const lines = bodyText.split('\n').filter(l => l.trim());
             const firstLine = `<strong>${lines[0]}</strong>`;
             const rest = lines.slice(1).join('<br>');
             const mapLine = post.location.link 
                 ? `<br>🗺️ <a href="${post.location.link}" target="_blank">${post.location.link}</a>` : '';
             const diffHtml = post.difficulty ? `<br>🏃 ${post.difficulty}` : '';
-            const dogHtml = dogLine(post).replace(/\\n/g, '<br>');
+            const dogHtml = dogLine(post).replace(/\n/g, '<br>');
             out += `<br><br>${firstLine}${rest ? '<br>' + rest : ''}${diffHtml}${dogHtml}${tideText}<br>📍 ${address}.${mapLine}`;
         });
         return out;
