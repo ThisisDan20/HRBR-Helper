@@ -159,7 +159,7 @@ First entrance after Parau. An hour of bush and beach to Cornwallis and back, 8k
 const THURSDAY_LOCATIONS = [
     { name: "Huia Rd/Exhibition Drive", link: "https://maps.app.goo.gl/cihV7R2A1bV6hEGo6",
       meetingSpot: "Opposite 394 Huia Road, Titirangi, Auckland 0604",
-      lat: -36.9503, lng: 174.5711,
+      lat: -36.9503, lng: 174.5711, coastal: false,
       dogFriendly: "🐕 Dogs ok, on lead.",
       text: `Thursday ${nextThursday} 5:45pm - Huia Rd/Exhibition Drive
 Meet corner Huia Road, Exhibition Drive for a fun 6km/1hr jaunt around Arataki.` },
@@ -464,6 +464,8 @@ function App() {
         const selectedLocation = saturdayLocations[selectedIndex];
         newPosts[2].selectedLocationIndex = selectedIndex;
         newPosts[2].location = selectedLocation;
+        newPosts[2].dogFriendly = selectedLocation.dogFriendly || '';
+        newPosts[2].difficulty  = selectedLocation.difficulty || '';
         
         // Add Saturday title with date: "Saturday 15-Feb 2pm 10km - [location name]"
         const satDate = getNextSaturday();
@@ -642,7 +644,9 @@ function App() {
         const loc = post.location;
         
         // Gate: Saturday uses sheet coastal flag; Tue/Thu use keyword detection
-        const isCoastal = post.day === 'Saturday'
+        // explicit coastal:false on a location always suppresses tide
+        const isCoastal = loc.coastal === false ? false
+            : post.day === 'Saturday'
             ? !!loc.coastal
             : isCoastalLocation(loc.name, loc.meetingSpot || '', post.text);
         if (!isCoastal) return null;
