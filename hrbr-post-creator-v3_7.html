@@ -519,6 +519,42 @@ function App() {
         return subject.replace('This week\'s runs -', 'HRBR -');
     };
 
+    // Coastal location lookup: maps location name keywords → coords + LINZ station
+    const COASTAL_COORDS = {
+        'cornwallis':         { lat: -36.9667, lng: 174.5500, station: 'onehunga' },
+        'huia':               { lat: -37.0167, lng: 174.5500, station: 'onehunga' },
+        'laingholm':          { lat: -36.9701, lng: 174.5501, station: 'onehunga' },
+        'mill bay':           { lat: -36.9985, lng: 174.5320, station: 'onehunga' },
+        'whatipu':            { lat: -37.0500, lng: 174.4833, station: 'onehunga' },
+        'whitford':           { lat: -36.9167, lng: 175.0167, station: 'onehunga' },
+        'browns bay':         { lat: -36.7167, lng: 174.7500, station: 'auckland' },
+        'bucklands beach':    { lat: -36.8833, lng: 174.8833, station: 'auckland' },
+        'castor bay':         { lat: -36.7333, lng: 174.7333, station: 'auckland' },
+        'devonport naval base': { lat: -36.8333, lng: 174.8000, station: 'auckland' },
+        'doves bay':          { lat: -36.6500, lng: 174.6833, station: 'auckland' },
+        'kohimarama':         { lat: -36.8667, lng: 174.8333, station: 'auckland' },
+        'little shoal bay':   { lat: -36.8167, lng: 174.7333, station: 'auckland' },
+        'mahurangi':          { lat: -36.4333, lng: 174.6667, station: 'auckland' },
+        'matiatia bay':       { lat: -36.7833, lng: 174.9833, station: 'auckland' },
+        'onehunga':           { lat: -36.9333, lng: 174.7833, station: 'onehunga' },
+        'waiheke':            { lat: -36.8000, lng: 175.0833, station: 'auckland' },
+        'weiti river':        { lat: -36.6167, lng: 174.7333, station: 'auckland' },
+        'piha':               { lat: -36.9500, lng: 174.4667, station: 'anawhata' },
+        'te henga':           { lat: -36.8833, lng: 174.4333, station: 'anawhata' },
+        'karekare':           { lat: -36.9833, lng: 174.4667, station: 'anawhata' },
+        'muriwai':            { lat: -36.8000, lng: 174.4333, station: 'anawhata' },
+        'beach':              { lat: null, lng: null, station: null }, // generic — excluded from keywords
+    };
+
+    const getCoastalCoords = (locationName, meetingSpot, text) => {
+        const haystack = `${locationName} ${meetingSpot} ${text}`.toLowerCase();
+        for (const [key, coords] of Object.entries(COASTAL_COORDS)) {
+            if (key === 'beach') continue;
+            if (haystack.includes(key) && coords.lat) return coords;
+        }
+        return null;
+    };
+
     const COASTAL_PLACE_KEYWORDS = Object.keys(COASTAL_COORDS).filter(k => k !== 'beach');
     const COASTAL_GENERIC_KEYWORDS = ['beach', 'coastal', 'bay', 'tide'];
 
