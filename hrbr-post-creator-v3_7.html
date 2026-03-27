@@ -249,13 +249,12 @@ function App() {
 
         const best = nearby.length ? nearby[0] : (lows.length && Math.abs(new Date(lows[0].time) - runMs) <= FOUR_DAYS ? lows[0] : null);
         if (!best) return null;
-        const isBefore = new Date(best.time) < runTime;
         const arrow = best.type && best.type.toUpperCase() === 'HIGH' ? '▲' : '▼';
         const tLabel = best.type && best.type.toUpperCase() === 'HIGH' ? 'High' : 'Low';
         const localTime = new Date(best.time).toLocaleTimeString('en-NZ', { hour:'numeric', minute:'2-digit', hour12:true, timeZone:'Pacific/Auckland' });
         const isNearby = nearby.length && nearby[0] === best;
         const nearbyTag = isNearby ? ' ⚠️' : '';
-        return `${best.value.toFixed(1)}m (${arrow}${tLabel} ${localTime}${isBefore?' past':''}${nearbyTag})`;
+        return `${best.value.toFixed(1)}m (${arrow}${tLabel} ${localTime}${nearbyTag})`;
     };
 
     const FIXED_TIDE_RUNS = [
