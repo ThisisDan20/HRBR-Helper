@@ -253,7 +253,8 @@ function App() {
         const tLabel = best.type && best.type.toUpperCase() === 'HIGH' ? 'High' : 'Low';
         const localTime = new Date(best.time).toLocaleTimeString('en-NZ', { hour:'numeric', minute:'2-digit', hour12:true, timeZone:'Pacific/Auckland' });
         const isNearby = nearby.length && nearby[0] === best;
-        const nearbyTag = isNearby ? ' ⚠️' : '';
+        const isLow = best.type && best.type.toUpperCase() === 'LOW';
+        const nearbyTag = isNearby ? (isLow ? ' ✅' : ' 🌊') : '';
         return `${best.value.toFixed(1)}m (${arrow}${tLabel} ${localTime}${nearbyTag})`;
     };
 
