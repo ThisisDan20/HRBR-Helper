@@ -500,7 +500,8 @@ function App() {
         const address = post.location.meetingSpot || post.location.name;
         const bodyText = textWithWeather(post.text, weather);
         const mapLine = post.location.link ? `\n🗺️ Map link for the start/finish: ${post.location.link}` : '';
-        return `${bodyText}${difficultyLine(post)}${dogLine(post)}${tideText}\n📍 ${address}.${mapLine}\n\n${hashtags}`;
+        const stravaLine = `\n🟠 Join our Strava club: https://strava.app.link/mTXtNG8dR1b`;
+        return `${bodyText}${difficultyLine(post)}${dogLine(post)}${tideText}\n📍 ${address}.${mapLine}${stravaLine}\n\n${hashtags}`;
     };
     
     const generateSubjectLine = (posts) => {
