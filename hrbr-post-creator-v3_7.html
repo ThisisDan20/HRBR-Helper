@@ -1233,8 +1233,7 @@ function App() {
                         y += dayFontSize * 1.25;
 
                         // Line 2: date + time
-                        const firstLine = post.text.split('
-')[0];
+                        const firstLine = post.text.split('\n')[0];
                         const dateMatch = firstLine.match(/(\d{1,2}-\w{3})/);
                         const timeMatch = firstLine.match(/(\d{1,2}(?::\d{2})?\s*(?:am|pm))/i);
                         let line2 = '';
