@@ -1159,8 +1159,6 @@ function App() {
                     if (imgAspect > 1) { sh = topoImg.height; sw = sh; sx = (topoImg.width - sw)/2; sy = 0; }
                     else               { sw = topoImg.width; sh = sw; sx = 0; sy = (topoImg.height - sh)/2; }
                     ctx.drawImage(topoImg, sx, sy, sw, sh, 0, 0, W, H);
-                    ctx.fillStyle = 'rgba(15, 61, 36, 0.65)';
-                    ctx.fillRect(0, 0, W, H);
 
                     // --- Logo top-right (white bg, same as daily) ---
                     const logoW = 250;
@@ -1211,8 +1209,8 @@ function App() {
 
                     // --- bottom-align blocks above the strava bar ---
                     // Saturday (i=2) bottom-aligns to contentBottom
-                    const contentBottom = H - stravaBarH - 24;
-                    const blockGap = 40; // space between blocks
+                    const contentBottom = H - stravaBarH - 74;
+                    const blockGap = 25; // space between blocks
 
                     // blockBottomY[i] = y of the baseline of the last pill in block i
                     // work upwards from Sat
