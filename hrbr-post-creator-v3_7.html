@@ -1190,7 +1190,7 @@ function App() {
                     ctx.fillRect(0, H - stravaBarH, W, stravaBarH);
                     ctx.font = `600 ${stravaFontSize}px Inter`;
                     ctx.fillStyle = 'white';
-                    ctx.fillText('Join our Strava events: strava.app.link/mTXtNG8dR1b', 40, H - stravaBarH + stravaBarH/2 + stravaFontSize/3);
+                    ctx.fillText('Join our Strava events: strava.com/clubs/25494', 40, H - stravaBarH + stravaBarH/2 + stravaFontSize/3);
 
                     // --- "RUNS THIS WEEK" title ---
                     const LEFT = 40;
@@ -1198,30 +1198,34 @@ function App() {
                     const titleY = logoY + titleFontSize;
                     drawYellow('RUNS THIS WEEK', LEFT, titleY, titleFontSize, '900');
 
-                    // --- 3 run blocks, stacked with dividers ---
-                    const contentTop = titleY + 50;  // buffer below title
-                    const contentBottom = H - stravaBarH - 20;
-                    const totalH = contentBottom - contentTop;
-                    const blockH = totalH / 3;
+                    // --- font sizes ---
                     const dayFontSize = 62;
                     const detailFontSize = 46;
                     const locFontSize = 52;
-                    const dividerPad = 20;
+                    const lineGap = 8; // gap between pill rows within a block
+
+                    // --- measure block height (3 lines: day, date/time, location) ---
+                    const blockInnerH = (dayFontSize * 1.2 + lineGap) +
+                                        (detailFontSize * 1.2 + lineGap) +
+                                        (locFontSize * 1.2);
+
+                    // --- bottom-align blocks above the strava bar ---
+                    // Saturday (i=2) bottom-aligns to contentBottom
+                    const contentBottom = H - stravaBarH - 24;
+                    const blockGap = 40; // space between blocks
+
+                    // blockBottomY[i] = y of the baseline of the last pill in block i
+                    // work upwards from Sat
+                    const satBottom = contentBottom;
+                    const thuBottom = satBottom - blockInnerH - blockGap;
+                    const tueBottom = thuBottom - blockInnerH - blockGap;
+                    const blockBottoms = [tueBottom, thuBottom, satBottom];
+
+                    const logoBottom = logoY - logoPad + logoH + logoPad * 2;
 
                     posts.forEach((post, i) => {
-                        const blockY = contentTop + i * blockH;
-
-                        // divider above blocks 1 and 2
-                        if (i > 0) {
-                            ctx.strokeStyle = 'rgba(255,255,255,0.25)';
-                            ctx.lineWidth = 2;
-                            ctx.beginPath();
-                            ctx.moveTo(LEFT, blockY + dividerPad);
-                            ctx.lineTo(W - LEFT, blockY + dividerPad);
-                            ctx.stroke();
-                        }
-
-                        let y = blockY + (i === 0 ? 0 : dividerPad * 2) + dayFontSize + 10;
+                        // start y = blockBottom - blockInnerH + dayFontSize (first baseline)
+                        let y = blockBottoms[i] - blockInnerH + dayFontSize * 1.2;
 
                         // Line 1: DAY, distance + weather
                         const distMatch = post.text.match(/(\d+(?:-\d+)?km)/i);
@@ -1230,7 +1234,7 @@ function App() {
                         const dayStr = post.day.toUpperCase();
                         const line1 = distMatch ? `${dayStr}, ${distMatch[1]}${weatherStr}` : `${dayStr}${weatherStr}`;
                         drawYellow(line1, LEFT, y, dayFontSize, '900');
-                        y += dayFontSize * 1.25;
+                        y += dayFontSize * 1.2 + lineGap;
 
                         // Line 2: date + time
                         const firstLine = post.text.split('\n')[0];
@@ -1241,11 +1245,10 @@ function App() {
                         if (timeMatch) line2 += (line2 ? ', ' : '') + timeMatch[1];
                         if (line2) {
                             drawYellow(line2, LEFT, y, detailFontSize, '700');
-                            y += detailFontSize * 1.25;
                         }
+                        y += detailFontSize * 1.2 + lineGap;
 
                         // Line 3: location name (wrap if needed)
-                        const logoBottom = logoY - logoPad + logoH + logoPad*2;
                         const maxW = y < logoBottom ? logoX - 60 : W - 80;
                         ctx.font = `700 ${locFontSize}px Inter`;
                         const locWords = (post.location.name || '').split(' ');
@@ -1254,7 +1257,7 @@ function App() {
                             const test = line + word + ' ';
                             if (ctx.measureText(test).width > maxW && line) {
                                 drawYellow(line.trim(), LEFT, y, locFontSize, '700');
-                                y += locFontSize * 1.25;
+                                y += locFontSize * 1.2;
                                 line = word + ' ';
                             } else { line = test; }
                         }
