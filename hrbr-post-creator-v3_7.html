@@ -1153,7 +1153,7 @@ function App() {
                     canvas.width = W;
                     canvas.height = H;
 
-                    // --- Background: topo map, dark green overlay (same as daily) ---
+                    // --- Background: topo map, dark green overlay ---
                     const imgAspect = topoImg.width / topoImg.height;
                     let sx, sy, sw, sh;
                     if (imgAspect > 1) { sh = topoImg.height; sw = sh; sx = (topoImg.width - sw)/2; sy = 0; }
@@ -1172,7 +1172,7 @@ function App() {
                     ctx.fillRect(logoX - logoPad, logoY - logoPad, W - (logoX - logoPad), logoH + logoPad*2);
                     ctx.drawImage(logoImg, logoX, logoY, logoW, logoH);
 
-                    // --- drawTextWithYellowBG helper (same as daily) ---
+                    // --- drawYellow helper (same style as daily) ---
                     const drawYellow = (text, x, y, fontSize, fontWeight='700', padding=20) => {
                         ctx.font = `${fontWeight} ${fontSize}px Inter`;
                         const tw = ctx.measureText(text).width;
@@ -1183,32 +1183,58 @@ function App() {
                         ctx.fillText(text, x, y);
                     };
 
-                    // --- 3 run blocks, stacked vertically ---
-                    const logoBottom = logoY - logoPad + logoH + logoPad*2;
-                    const blockStartY = logoBottom + 30;
-                    const blockH = (H - blockStartY - 40) / 3;
-                    const LEFT = 40;
-                    const dayFontSize = 70;
-                    const detailFontSize = 50;
-                    const distFontSize = 56;
+                    // --- Strava footer bar (orange, full width) ---
+                    const stravaBarH = 64;
+                    const stravaFontSize = 30;
+                    ctx.fillStyle = '#e8530a';
+                    ctx.fillRect(0, H - stravaBarH, W, stravaBarH);
+                    ctx.font = `600 ${stravaFontSize}px Inter`;
+                    ctx.fillStyle = 'white';
+                    ctx.fillText('Join our Strava events: strava.app.link/mTXtNG8dR1b', 40, H - stravaBarH + stravaBarH/2 + stravaFontSize/3);
 
-                    const maxW = (y) => y < logoBottom ? logoX - 60 : W - 80;
+                    // --- "RUNS THIS WEEK" title ---
+                    const LEFT = 40;
+                    const titleFontSize = 70;
+                    const titleY = logoY + titleFontSize;
+                    drawYellow('RUNS THIS WEEK', LEFT, titleY, titleFontSize, '900');
+
+                    // --- 3 run blocks, stacked with dividers ---
+                    const contentTop = titleY + 50;  // buffer below title
+                    const contentBottom = H - stravaBarH - 20;
+                    const totalH = contentBottom - contentTop;
+                    const blockH = totalH / 3;
+                    const dayFontSize = 62;
+                    const detailFontSize = 46;
+                    const locFontSize = 52;
+                    const dividerPad = 20;
 
                     posts.forEach((post, i) => {
-                        const blockY = blockStartY + i * blockH;
-                        let y = blockY + dayFontSize + 10;
+                        const blockY = contentTop + i * blockH;
 
-                        // Day + distance line  e.g. "TUESDAY, 8km"
+                        // divider above blocks 1 and 2
+                        if (i > 0) {
+                            ctx.strokeStyle = 'rgba(255,255,255,0.25)';
+                            ctx.lineWidth = 2;
+                            ctx.beginPath();
+                            ctx.moveTo(LEFT, blockY + dividerPad);
+                            ctx.lineTo(W - LEFT, blockY + dividerPad);
+                            ctx.stroke();
+                        }
+
+                        let y = blockY + (i === 0 ? 0 : dividerPad * 2) + dayFontSize + 10;
+
+                        // Line 1: DAY, distance + weather
                         const distMatch = post.text.match(/(\d+(?:-\d+)?km)/i);
                         const weather = weatherInfo[post.day];
                         const weatherStr = weather ? ` ${weather.icon}${weather.temp}°C` : '';
                         const dayStr = post.day.toUpperCase();
                         const line1 = distMatch ? `${dayStr}, ${distMatch[1]}${weatherStr}` : `${dayStr}${weatherStr}`;
                         drawYellow(line1, LEFT, y, dayFontSize, '900');
-                        y += dayFontSize * 1.3;
+                        y += dayFontSize * 1.25;
 
-                        // Date + time line  e.g. "22-Mar, 5:15pm"
-                        const firstLine = post.text.split('\n')[0];
+                        // Line 2: date + time
+                        const firstLine = post.text.split('
+')[0];
                         const dateMatch = firstLine.match(/(\d{1,2}-\w{3})/);
                         const timeMatch = firstLine.match(/(\d{1,2}(?::\d{2})?\s*(?:am|pm))/i);
                         let line2 = '';
@@ -1216,33 +1242,25 @@ function App() {
                         if (timeMatch) line2 += (line2 ? ', ' : '') + timeMatch[1];
                         if (line2) {
                             drawYellow(line2, LEFT, y, detailFontSize, '700');
-                            y += detailFontSize * 1.3;
+                            y += detailFontSize * 1.25;
                         }
 
-                        // Location name (wrap if needed)
-                        ctx.font = `700 ${distFontSize}px Inter`;
+                        // Line 3: location name (wrap if needed)
+                        const logoBottom = logoY - logoPad + logoH + logoPad*2;
+                        const maxW = y < logoBottom ? logoX - 60 : W - 80;
+                        ctx.font = `700 ${locFontSize}px Inter`;
                         const locWords = (post.location.name || '').split(' ');
                         let line = '';
                         for (const word of locWords) {
                             const test = line + word + ' ';
-                            if (ctx.measureText(test).width > maxW(y) && line) {
-                                drawYellow(line.trim(), LEFT, y, distFontSize, '700');
-                                y += distFontSize * 1.3;
+                            if (ctx.measureText(test).width > maxW && line) {
+                                drawYellow(line.trim(), LEFT, y, locFontSize, '700');
+                                y += locFontSize * 1.25;
                                 line = word + ' ';
                             } else { line = test; }
                         }
-                        if (line.trim()) drawYellow(line.trim(), LEFT, y, distFontSize, '700');
+                        if (line.trim()) drawYellow(line.trim(), LEFT, y, locFontSize, '700');
                     });
-
-                    // --- Strava footer ---
-                    const stravaFontSize = 30;
-                    ctx.font = `600 ${stravaFontSize}px Inter`;
-                    const stravaText = '🟠 Join us on Strava: strava.app.link/mTXtNG8dR1b';
-                    const stravaW = ctx.measureText(stravaText).width;
-                    ctx.fillStyle = 'rgba(255,255,255,0.15)';
-                    ctx.fillRect(LEFT - 12, H - 52, stravaW + 24, stravaFontSize + 16);
-                    ctx.fillStyle = 'rgba(255,255,255,0.90)';
-                    ctx.fillText(stravaText, LEFT, H - 28);
 
                     resolve(canvas.toDataURL('image/jpeg', 0.92));
                 } catch(e) { reject(e); }
