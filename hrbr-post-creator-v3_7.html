@@ -237,6 +237,9 @@ function App() {
         if (!values.length) return null;
         const runMs = runTime.getTime();
         const NEARBY_WINDOW = 3 * 3600000;
+        const BUFFER_API_KEY = 'pzzwkjh1fdUtNIQLOM8GzM5mZt8JsPCFEmc49I42rSl';
+        const BUFFER_INSTAGRAM_CHANNEL_ID = '69c8d72caf47dacb6967a83d';
+        const BUFFER_FB_CHANNEL_ID = '69c8d8e2af47dacb6967ab5e';
         const FOUR_DAYS = 4 * 86400000;
 
         // 1. First look for any tide (high or low) within 2 hours of run start
@@ -1619,6 +1622,45 @@ function App() {
             {copiedIndex !== null && (
                 <div className="copied-toast">Copied to clipboard!</div>
             )}
+
+            {/* ── Buffer Integration Test ── */}
+            <div style={{marginTop:'2rem', padding:'1rem', background:'#f0f4ff', borderRadius:'8px', border:'1px solid #c0d0ff'}}>
+                <h3 style={{margin:'0 0 0.75rem', fontSize:'1rem', color:'#1a1a2e'}}>📤 Buffer Integration</h3>
+                <button
+                    onClick={async () => {
+                        const el = document.getElementById('buffer-test-result');
+                        el.textContent = 'Testing…';
+                        try {
+                            const r = await fetch('https://api.buffer.com/1/channels.json', {
+                                headers: { 'Authorization': `Bearer ${BUFFER_API_KEY}` }
+                            });
+                            if (!r.ok) {
+                                el.textContent = `❌ Auth failed: HTTP ${r.status}`;
+                                return;
+                            }
+                            const channels = await r.json();
+                            const names = channels.map(c => `${c.service}: ${c.service_username || c.id}`).join('\n');
+                            const ids = channels.map(c => c.id);
+                            const igOk = ids.includes(BUFFER_INSTAGRAM_CHANNEL_ID);
+                            const fbOk = ids.includes(BUFFER_FB_CHANNEL_ID);
+                            el.textContent = [
+                                '✅ Auth OK',
+                                `Instagram channel: ${igOk ? '✅ found' : '❌ NOT found — check ID'}`,
+                                `FB Group channel: ${fbOk ? '✅ found' : '❌ NOT found — check ID'}`,
+                                '',
+                                'All channels:',
+                                names
+                            ].join('\n');
+                        } catch(e) {
+                            el.textContent = `❌ Error: ${e.message}\n\nCORS may be blocking browser→Buffer API calls.\nBuffer integration will not work from GitHub Pages without a proxy.`;
+                        }
+                    }}
+                    style={{padding:'0.5rem 1rem', background:'#4a6cf7', color:'white', border:'none', borderRadius:'4px', cursor:'pointer', fontWeight:'bold'}}
+                >
+                    Test Buffer Connection
+                </button>
+                <pre id="buffer-test-result" style={{marginTop:'0.75rem', padding:'0.75rem', background:'white', borderRadius:'4px', fontSize:'0.8rem', whiteSpace:'pre-wrap', minHeight:'2rem'}}></pre>
+            </div>
         </div>
     );
 }
