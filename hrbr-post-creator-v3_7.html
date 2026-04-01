@@ -103,7 +103,7 @@ canvas { display:none; }
 <script type="text/babel">
 const { useState, useRef, useEffect } = React;
 
-const BUFFER_API_KEY = 'pzzwkjh1fdUtNIQLOM8GzM5mZt8JsPCFEmc49I42rSl';
+const BUFFER_WORKER_URL = 'https://hrbr-buffer-proxy.dgroberts.workers.dev';
 const BUFFER_INSTAGRAM_CHANNEL_ID = '69c8d72caf47dacb6967a83d';
 const BUFFER_FB_CHANNEL_ID = '69c8d8e2af47dacb6967ab5e';
 
@@ -1632,28 +1632,26 @@ function App() {
                         const el = document.getElementById('buffer-test-result');
                         el.textContent = 'Testing…';
                         try {
-                            const r = await fetch('https://api.buffer.com/1/channels.json', {
-                                headers: { 'Authorization': `Bearer ${BUFFER_API_KEY}` }
+                            const r = await fetch(BUFFER_WORKER_URL, {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({ action: 'test' })
                             });
-                            if (!r.ok) {
-                                el.textContent = `❌ Auth failed: HTTP ${r.status}`;
+                            const data = await r.json();
+                            if (!r.ok || !data.ok) {
+                                el.textContent = `❌ Failed: ${data.error || r.status}`;
                                 return;
                             }
-                            const channels = await r.json();
-                            const names = channels.map(c => `${c.service}: ${c.service_username || c.id}`).join('\n');
-                            const ids = channels.map(c => c.id);
-                            const igOk = ids.includes(BUFFER_INSTAGRAM_CHANNEL_ID);
-                            const fbOk = ids.includes(BUFFER_FB_CHANNEL_ID);
                             el.textContent = [
-                                '✅ Auth OK',
-                                `Instagram channel: ${igOk ? '✅ found' : '❌ NOT found — check ID'}`,
-                                `FB Group channel: ${fbOk ? '✅ found' : '❌ NOT found — check ID'}`,
-                                '',
-                                'All channels:',
-                                names
+                                `✅ Worker reachable`,
+                                `✅ Buffer auth OK`,
+                                `Account: ${data.account?.email || data.account?.id || 'unknown'}`,
+                                ``,
+                                `Instagram channel ID: ${BUFFER_INSTAGRAM_CHANNEL_ID}`,
+                                `FB Group channel ID: ${BUFFER_FB_CHANNEL_ID}`
                             ].join('\n');
                         } catch(e) {
-                            el.textContent = `❌ Error: ${e.message}\n\nCORS may be blocking browser→Buffer API calls.\nBuffer integration will not work from GitHub Pages without a proxy.`;
+                            el.textContent = `❌ Error: ${e.message}`;
                         }
                     }}
                     style={{padding:'0.5rem 1rem', background:'#4a6cf7', color:'white', border:'none', borderRadius:'4px', cursor:'pointer', fontWeight:'bold'}}
