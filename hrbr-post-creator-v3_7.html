@@ -1082,52 +1082,31 @@ function App() {
         const img = new Image();
         const url = URL.createObjectURL(file);
         img.onload = () => {
-            const size = 1080;
-            const canvas = document.createElement('canvas');
+            const size = 1080; const canvas = document.createElement('canvas');
             canvas.width = size; canvas.height = size;
             const ctx = canvas.getContext('2d');
             const s = Math.min(img.width, img.height);
-            const sx = (img.width - s) / 2;
-            const sy = (img.height - s) / 2;
-            ctx.drawImage(img, sx, sy, s, s, 0, 0, size, size);
-            URL.revokeObjectURL(url);
-            resolve(canvas.toDataURL('image/jpeg', 0.92));
+            ctx.drawImage(img, (img.width-s)/2, (img.height-s)/2, s, s, 0, 0, size, size);
+            URL.revokeObjectURL(url); resolve(canvas.toDataURL('image/jpeg', 0.92));
         };
         img.src = url;
     });
-
     const handleBufferPhotoSelect = async (e) => {
         const files = Array.from(e.target.files).slice(0, 10);
         const results = await Promise.all(files.map(async (file) => {
-            const dataUrl = await new Promise(res => {
-                const r = new FileReader();
-                r.onload = () => res(r.result);
-                r.readAsDataURL(file);
-            });
+            const dataUrl = await new Promise(res => { const r = new FileReader(); r.onload = () => res(r.result); r.readAsDataURL(file); });
             const resized = await resizeTo1080(file);
             return { file, dataUrl, resized };
         }));
-        setBufferPhotos(results);
-        setBufferStatus({});
+        setBufferPhotos(results); setBufferStatus({});
     };
-
     const postToBuffer = async (channelId, caption, images, key) => {
         setBufferStatus(s => ({ ...s, [key]: 'Sending…' }));
         try {
-            const r = await fetch(BUFFER_WORKER_URL, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ action: 'post', channelId, caption, images })
-            });
+            const r = await fetch(BUFFER_WORKER_URL, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'post', channelId, caption, images }) });
             const data = await r.json();
-            if (data.ok) {
-                setBufferStatus(s => ({ ...s, [key]: '✅ Drafted in Buffer!' }));
-            } else {
-                setBufferStatus(s => ({ ...s, [key]: `❌ ${data.error || 'Unknown error'}` }));
-            }
-        } catch(e) {
-            setBufferStatus(s => ({ ...s, [key]: `❌ ${e.message}` }));
-        }
+            setBufferStatus(s => ({ ...s, [key]: data.ok ? '✅ Drafted in Buffer!' : `❌ ${data.error || 'Unknown error'}` }));
+        } catch(e) { setBufferStatus(s => ({ ...s, [key]: `❌ ${e.message}` })); }
     };
 
         const copyToClipboard = (text, index) => {
@@ -1443,12 +1422,12 @@ function App() {
                                                     <div>{row.name}</div>
                                                     {row.desc && <div style={{fontSize:'0.68rem', color:'#888', fontWeight:400, marginTop:'0.1rem'}}>{row.desc}</div>}
                                                 </td>
-                                                <td style={{padding:'0.25rem 0.35rem', whiteSpace:'nowrap', textAlign:'left'}}>
-                                                    <span style={{background:{Tuesday:'#e0f2fe',Thursday:'#d1fae5',Saturday:'#ffedd5'}[row.day]||'#eee', padding:'0.1rem 0.35rem', borderRadius:'4px', fontSize:'0.7rem', fontWeight:600}}>{row.day.slice(0,3)}</span>
-                                                    {row.runTime && <div style={{fontSize:'0.67rem', color:'#888', marginTop:'0.1rem'}}>{row.runTime.toLocaleDateString('en-NZ', {day:'numeric', month:'short', timeZone:'Pacific/Auckland'}).replace(' ', '-')}</div>}
-                                                </td>
+                                                <td style={{padding:'0.25rem 0.35rem', whiteSpace:'nowrap', textAlign:'left'}}><span style={{background:{Tuesday:'#e0f2fe',Thursday:'#d1fae5',Saturday:'#ffedd5'}[row.day]||'#eee', padding:'0.1rem 0.35rem', borderRadius:'4px', fontSize:'0.7rem', fontWeight:600}}>{row.day.slice(0,3)}</span></td>
                                                 <td style={{padding:'0.25rem 0.35rem', color:'#6c757d', whiteSpace:'nowrap', textAlign:'left'}}>{runTimeStr}</td>
-                                                <td style={{padding:'0.25rem 0.35rem', fontWeight:600, color:tideColor, whiteSpace:'nowrap', textAlign:'left'}}>{row.tide}</td>
+                                                <td style={{padding:'0.25rem 0.35rem', fontWeight:600, color:tideColor, whiteSpace:'nowrap', textAlign:'left'}}>
+                                                    {row.tide}
+                                                    {row.runTime && <span style={{fontWeight:400, color:'#888', fontSize:'0.72rem', marginLeft:'0.3rem'}}>{row.runTime.toLocaleDateString('en-NZ', {day:'numeric', month:'short', timeZone:'Pacific/Auckland'}).replace(' ', '-')}</span>}
+                                                </td>
                                             </tr>
                                         );
                                     })}
@@ -1678,61 +1657,39 @@ function App() {
                 </div>
             )}
 
-            {/* ── Buffer Integration ── */}
             {showOutput && (
                 <div style={{marginTop:'2rem', padding:'1.5rem', background:'#f0f4ff', borderRadius:'12px', border:'1px solid #c0d0ff'}}>
                     <h3 style={{margin:'0 0 1rem', fontSize:'1.1rem', color:'#1a1a2e'}}>📤 Draft in Buffer</h3>
                     <div style={{marginBottom:'1rem'}}>
-                        <div style={{fontSize:'0.85rem', fontWeight:'600', color:'#444', marginBottom:'0.5rem'}}>
-                            Upload photos (up to 10) — Instagram will be resized to 1080×1080, FB sent as-is
-                        </div>
+                        <div style={{fontSize:'0.85rem', fontWeight:'600', color:'#444', marginBottom:'0.5rem'}}>Upload photos (up to 10) — Instagram resized to 1080×1080, FB sent as-is</div>
                         <input type="file" accept="image/*" multiple ref={bufferPhotoInputRef} style={{display:'none'}} onChange={handleBufferPhotoSelect} />
-                        <button onClick={() => bufferPhotoInputRef.current.click()}
-                            style={{padding:'0.5rem 1rem', background:'white', border:'1px solid #c0d0ff', borderRadius:'6px', cursor:'pointer', fontSize:'0.9rem', marginRight:'0.5rem'}}>
+                        <button onClick={() => bufferPhotoInputRef.current.click()} style={{padding:'0.5rem 1rem', background:'white', border:'1px solid #c0d0ff', borderRadius:'6px', cursor:'pointer', fontSize:'0.9rem', marginRight:'0.5rem'}}>
                             {bufferPhotos.length > 0 ? `${bufferPhotos.length} photo${bufferPhotos.length > 1 ? 's' : ''} selected` : '+ Select photos'}
                         </button>
-                        {bufferPhotos.length > 0 && (
-                            <button onClick={() => { setBufferPhotos([]); setBufferStatus({}); bufferPhotoInputRef.current.value = ''; }}
-                                style={{padding:'0.5rem 0.75rem', background:'white', border:'1px solid #ccc', borderRadius:'6px', cursor:'pointer', fontSize:'0.85rem', color:'#666'}}>
-                                Clear
-                            </button>
-                        )}
+                        {bufferPhotos.length > 0 && <button onClick={() => { setBufferPhotos([]); setBufferStatus({}); bufferPhotoInputRef.current.value = ''; }} style={{padding:'0.5rem 0.75rem', background:'white', border:'1px solid #ccc', borderRadius:'6px', cursor:'pointer', fontSize:'0.85rem', color:'#666'}}>Clear</button>}
                     </div>
                     {bufferPhotos.length > 0 && (
                         <div style={{display:'flex', gap:'0.5rem', flexWrap:'wrap', marginBottom:'1.25rem'}}>
-                            {bufferPhotos.map((p, i) => (
-                                <img key={i} src={p.resized} alt={`photo ${i+1}`}
-                                    style={{width:'64px', height:'64px', objectFit:'cover', borderRadius:'4px', border:'1px solid #ddd'}} />
-                            ))}
+                            {bufferPhotos.map((p, i) => <img key={i} src={p.resized} alt={`photo ${i+1}`} style={{width:'64px', height:'64px', objectFit:'cover', borderRadius:'4px', border:'1px solid #ddd'}} />)}
                         </div>
                     )}
                     <div style={{display:'flex', gap:'1rem', flexWrap:'wrap'}}>
                         <div style={{flex:'1', minWidth:'200px'}}>
-                            <button
-                                onClick={() => {
-                                    const igCaption = generateCaption(posts.find(p => p.day === 'Saturday') || posts[0]);
-                                    postToBuffer(BUFFER_INSTAGRAM_CHANNEL_ID, igCaption, bufferPhotos.map(p => p.resized), 'ig');
-                                }}
+                            <button onClick={() => postToBuffer(BUFFER_INSTAGRAM_CHANNEL_ID, generateCaption(posts.find(p => p.day === 'Saturday') || posts[0]), bufferPhotos.map(p => p.resized), 'ig')}
                                 style={{width:'100%', padding:'0.6rem 1rem', background:'#E1306C', color:'white', border:'none', borderRadius:'6px', cursor:'pointer', fontWeight:'600', fontSize:'0.9rem'}}>
                                 📸 Draft Instagram post
                             </button>
                             {bufferStatus.ig && <div style={{marginTop:'0.4rem', fontSize:'0.8rem', color: bufferStatus.ig.startsWith('✅') ? 'green' : bufferStatus.ig.startsWith('❌') ? 'red' : '#666'}}>{bufferStatus.ig}</div>}
                         </div>
                         <div style={{flex:'1', minWidth:'200px'}}>
-                            <button
-                                onClick={() => {
-                                    const fbCaption = generateCaption(posts.find(p => p.day === 'Saturday') || posts[0]);
-                                    postToBuffer(BUFFER_FB_CHANNEL_ID, fbCaption, bufferPhotos.map(p => p.dataUrl), 'fb');
-                                }}
+                            <button onClick={() => postToBuffer(BUFFER_FB_CHANNEL_ID, generateCaption(posts.find(p => p.day === 'Saturday') || posts[0]), bufferPhotos.map(p => p.dataUrl), 'fb')}
                                 style={{width:'100%', padding:'0.6rem 1rem', background:'#1877F2', color:'white', border:'none', borderRadius:'6px', cursor:'pointer', fontWeight:'600', fontSize:'0.9rem'}}>
                                 👥 Draft FB Group post
                             </button>
                             {bufferStatus.fb && <div style={{marginTop:'0.4rem', fontSize:'0.8rem', color: bufferStatus.fb.startsWith('✅') ? 'green' : bufferStatus.fb.startsWith('❌') ? 'red' : '#666'}}>{bufferStatus.fb}</div>}
                         </div>
                     </div>
-                    <div style={{marginTop:'0.75rem', fontSize:'0.8rem', color:'#666'}}>
-                        Posts go to Buffer queue — schedule them in Buffer before publishing.
-                    </div>
+                    <div style={{marginTop:'0.75rem', fontSize:'0.8rem', color:'#666'}}>Posts go to Buffer queue — schedule in Buffer before publishing.</div>
                 </div>
             )}
 
