@@ -745,13 +745,17 @@ function App() {
         const lng = loc.lng || 174.7633;
         try {
             const runTime = getRunDateTime(post);
-            // Open-Meteo: free, no key, NZ coverage
-            // Request hourly temp + weather code for the run date
             const dateStr = runTime.toISOString().split('T')[0];
-            const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lng}&hourly=temperature_2m,weather_code&timezone=Pacific%2FAuckland&start_date=${dateStr}&end_date=${dateStr}`;
-            const res = await fetch(url);
-            if (!res.ok) { dbg('Open-Meteo error', res.status); return null; }
-            const data = await res.json();
+            // Proxy through Cloudflare worker to avoid CORS
+            const res = await fetch(BUFFER_WORKER_URL, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ action: 'weather', lat, lng, date: dateStr })
+            });
+            if (!res.ok) { dbg('Weather proxy error', res.status); return null; }
+            const json = await res.json();
+            if (!json.ok) { dbg('Weather error', json.error); return null; }
+            const data = json.data;
             const times = data.hourly?.time || [];
             const temps = data.hourly?.temperature_2m || [];
             const codes = data.hourly?.weather_code || [];
@@ -1624,23 +1628,6 @@ function App() {
                                                 const imgDataUrl = await getResizedDataUrl(post);
                                                 const schedDay = {Tuesday:1, Thursday:3, Saturday:5}[post.day];
                                                 const schedTime = nextNZTSchedule(schedDay, 8, 0);
-                                                await postToBufferScheduled(caption, imgDataUrl, schedTime, index);
-                                            }}
-                                            disabled={!post.photo}
-                                            style={{width:'100%', padding:'0.6rem', background:'#E1306C', color:'white',
-                                                    border:'none', borderRadius:'8px', fontWeight:'600', fontSize:'0.85rem',
-                                                    cursor: post.photo ? 'pointer' : 'not-allowed', opacity: post.photo ? 1 : 0.5}}>
-                                            📸 Post to Instagram Buffer
-                                        </button>
-                                        {bufferStatus[index] && <div style={{marginTop:'0.3rem', fontSize:'0.75rem', textAlign:'center', color: bufferStatus[index].startsWith('✅') ? 'green' : bufferStatus[index].startsWith('❌') ? 'red' : '#666'}}>{bufferStatus[index]}</div>}
-                                    </div>
-                                    <div style={{marginTop:'0.5rem'}}>
-                                        <button
-                                            onClick={async () => {
-                                                const imgDataUrl = await getResizedDataUrl(post);
-                                                const schedDay = {Tuesday:1, Thursday:3, Saturday:5}[post.day];
-                                                const schedTime = nextNZTSchedule(schedDay, 8, 0);
-                                                const label = {Tuesday:'Mon', Thursday:'Wed', Saturday:'Fri'}[post.day];
                                                 await postToBufferScheduled(caption, imgDataUrl, schedTime, index);
                                             }}
                                             disabled={!post.photo}
