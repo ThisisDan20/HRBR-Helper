@@ -276,6 +276,23 @@ function App() {
         return `${best.value.toFixed(1)}m (${arrow}${tLabel} ${localTime}${nearbyTag})`;
     };
 
+    // Returns true if current NZ date is in winter (DST off: first Sun April → last Sun September)
+    const isNZWinter = () => {
+        const now = new Date();
+        const nzt = new Date(now.toLocaleString('en-US', { timeZone: 'Pacific/Auckland' }));
+        const year = nzt.getFullYear();
+        const aprilFirst = new Date(year, 3, 1);
+        const dstEnd = new Date(year, 3, 1 + (7 - aprilFirst.getDay()) % 7); // first Sunday April
+        const octFirst = new Date(year, 9, 1);
+        const lastSunSep = new Date(year, 9, 1 - (octFirst.getDay() || 7)); // last Sunday September
+        return nzt >= dstEnd && nzt < lastSunSep;
+    };
+
+    const torchLine = (post) => {
+        if (post.day !== 'Tuesday' && post.day !== 'Thursday') return '';
+        return isNZWinter() ? '\n🔦 Bring a torch' : '';
+    };
+
     const ALL_FIXED_TIDE_RUNS = [
         { name: 'Mill Bay',  day: 'Tuesday',  hour: 17, min: 15, lat: -36.9985, lng: 174.5320, station: 'onehunga' },
         { name: 'Laingholm', day: 'Thursday', hour: 18, min: 0,  lat: -36.9701, lng: 174.5501, station: 'onehunga' },
@@ -504,30 +521,6 @@ function App() {
         const lines = text.split('\n');
         lines[0] = `${lines[0]} ${weather.icon}${weather.temp}°C`;
         return lines.join('\n');
-    };
-
-
-    // Returns true if current NZ date is in winter (DST off: first Sun April → last Sun September)
-    const isNZWinter = () => {
-        const now = new Date();
-        const nzt = new Date(now.toLocaleString('en-US', { timeZone: 'Pacific/Auckland' }));
-        const year = nzt.getFullYear();
-        const month = nzt.getMonth() + 1; // 1-based
-
-        // First Sunday in April = DST ends
-        const aprilFirst = new Date(year, 3, 1); // April 1
-        const dstEnd = new Date(year, 3, 1 + (7 - aprilFirst.getDay()) % 7); // first Sunday
-
-        // Last Sunday in September = DST begins
-        const octFirst = new Date(year, 9, 1); // October 1
-        const lastSunSep = new Date(year, 9, 1 - (octFirst.getDay() || 7)); // last Sunday in Sep
-
-        return nzt >= dstEnd && nzt < lastSunSep;
-    };
-
-    const torchLine = (post) => {
-        if (post.day !== 'Tuesday' && post.day !== 'Thursday') return '';
-        return isNZWinter() ? '\n🔦 Bring a torch' : '';
     };
 
     const difficultyLine = (post) => post.difficulty ? `\n🏃 ${post.difficulty}` : '';
