@@ -106,6 +106,20 @@ const { useState, useRef, useEffect } = React;
 const BUFFER_WORKER_URL = 'https://hrbr-buffer-proxy.dgroberts.workers.dev';
 const BUFFER_INSTAGRAM_CHANNEL_ID = '69c8d72caf47dacb6967a83d';
 
+function nextNZTSchedule(weekday, hour, minute) {
+    const now = new Date();
+    const nztNow = new Date(now.toLocaleString('en-US', {timeZone: 'Pacific/Auckland'}));
+    const diff = ((weekday - nztNow.getDay() + 7) % 7) || 7;
+    const targetNZT = new Date(nztNow);
+    targetNZT.setDate(nztNow.getDate() + diff);
+    targetNZT.setHours(hour, minute, 0, 0);
+    const offsetMs = nztNow.getTime() - now.getTime();
+    return new Date(targetNZT.getTime() - offsetMs).toISOString();
+}
+
+const BUFFER_WORKER_URL = 'https://hrbr-buffer-proxy.dgroberts.workers.dev';
+const BUFFER_INSTAGRAM_CHANNEL_ID = '69c8d72caf47dacb6967a83d';
+
 // Returns ISO UTC string for next occurrence of weekday at hour:min NZT
 // weekday: 0=Sun,1=Mon,2=Tue,3=Wed,4=Thu,5=Fri,6=Sat
 function nextNZTSchedule(weekday, hour, minute) {
@@ -217,6 +231,7 @@ function App() {
     const [tideCache, setTideCache] = useState(null); // loaded from tides.json
     const [showHowTo, setShowHowTo] = useState(false);
     const [bufferStatus, setBufferStatus] = useState({});
+    const [bufferStatus, setBufferStatus] = useState({});
     const fileInputRefs = [useRef(), useRef(), useRef()];
     const canvasRef = useRef();
 
@@ -277,10 +292,14 @@ function App() {
         return `${best.value.toFixed(1)}m (${arrow}${tLabel} ${localTime}${nearbyTag})`;
     };
 
-    const FIXED_TIDE_RUNS = [
+    const ALL_FIXED_TIDE_RUNS = [
         { name: 'Mill Bay',  day: 'Tuesday',  hour: 17, min: 15, lat: -36.9985, lng: 174.5320, station: 'onehunga' },
         { name: 'Laingholm', day: 'Thursday', hour: 18, min: 0,  lat: -36.9701, lng: 174.5501, station: 'onehunga' },
     ];
+    // Hide Laingholm during winter (no DST) — runs are at night, tides less relevant
+    const FIXED_TIDE_RUNS = ALL_FIXED_TIDE_RUNS.filter(r =>
+        !(r.name === 'Laingholm' && isNZWinter())
+    );
 
     const getRunDateForDay = (dayName, hour, min) => {
         const today = new Date();
@@ -503,6 +522,30 @@ function App() {
         return lines.join('\n');
     };
 
+
+    // Returns true if current NZ date is in winter (DST off: first Sun April → last Sun September)
+    const isNZWinter = () => {
+        const now = new Date();
+        const nzt = new Date(now.toLocaleString('en-US', { timeZone: 'Pacific/Auckland' }));
+        const year = nzt.getFullYear();
+        const month = nzt.getMonth() + 1; // 1-based
+
+        // First Sunday in April = DST ends
+        const aprilFirst = new Date(year, 3, 1); // April 1
+        const dstEnd = new Date(year, 3, 1 + (7 - aprilFirst.getDay()) % 7); // first Sunday
+
+        // Last Sunday in September = DST begins
+        const octFirst = new Date(year, 9, 1); // October 1
+        const lastSunSep = new Date(year, 9, 1 - (octFirst.getDay() || 7)); // last Sunday in Sep
+
+        return nzt >= dstEnd && nzt < lastSunSep;
+    };
+
+    const torchLine = (post) => {
+        if (post.day !== 'Tuesday' && post.day !== 'Thursday') return '';
+        return isNZWinter() ? '\n🔦 Bring a torch' : '';
+    };
+
     const difficultyLine = (post) => post.difficulty ? `\n🏃 ${post.difficulty}` : '';
     const dogLine = (post) => {
         const d = (post.location ? (post.dogFriendly || post.location.dogFriendly) : post.dogFriendly) || '';
@@ -520,7 +563,7 @@ function App() {
         const bodyText = textWithWeather(post.text, weather);
         const mapLine = post.location.link ? `\n🗺️ Map link for the start/finish: ${post.location.link}` : '';
         const stravaLine = `\n🟠 Join our Strava club: https://strava.app.link/mTXtNG8dR1b`;
-        return `${bodyText}${difficultyLine(post)}${dogLine(post)}${tideText}\n📍 ${address}.${mapLine}${stravaLine}\n\n${hashtags}`;
+        return `${bodyText}${difficultyLine(post)}${torchLine(post)}${dogLine(post)}${tideText}\n📍 ${address}.${mapLine}${stravaLine}\n\n${hashtags}`;
     };
     
     const generateSubjectLine = (posts) => {
@@ -816,7 +859,7 @@ function App() {
             const address = post.location.meetingSpot || post.location.name;
             const bodyText = textWithWeather(post.text, weather);
             const mapLine = post.location.link ? `\n🗺️ ${post.location.link}` : '';
-            out += `\n\n${bodyText}${difficultyLine(post)}${dogLine(post)}${tideText}\n📍 ${address}.${mapLine}`;
+            out += `\n\n${bodyText}${difficultyLine(post)}${torchLine(post)}${dogLine(post)}${tideText}\n📍 ${address}.${mapLine}`;
         });
         return out;
     };
@@ -1090,6 +1133,34 @@ function App() {
     };
 
     const postToBufferScheduled = async (caption, imageDataUrl, scheduledAt, key) => {
+        setBufferStatus(s => ({ ...s, [key]: 'Sending…' }));
+        try {
+            const r = await fetch(BUFFER_WORKER_URL, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ action: 'post', channelId: BUFFER_INSTAGRAM_CHANNEL_ID, caption, images: imageDataUrl ? [imageDataUrl] : [], scheduledAt })
+            });
+            const data = await r.json();
+            setBufferStatus(s => ({ ...s, [key]: data.ok ? '✅ Scheduled!' : `❌ ${data.error || 'Unknown error'}` }));
+        } catch(e) { setBufferStatus(s => ({ ...s, [key]: `❌ ${e.message}` })); }
+    };
+
+    const getResizedDataUrl = (post) => new Promise((resolve) => {
+        if (!post.photo) return resolve(null);
+        const img = new Image();
+        img.onload = () => {
+            const size = 1080; const canvas = document.createElement('canvas');
+            canvas.width = size; canvas.height = size;
+            const ctx = canvas.getContext('2d');
+            const s = Math.min(img.width, img.height);
+            ctx.drawImage(img, (img.width-s)/2, (img.height-s)/2, s, s, 0, 0, size, size);
+            resolve(canvas.toDataURL('image/jpeg', 0.92));
+        };
+        img.onerror = () => resolve(null);
+        img.src = post.photo.preview;
+    });
+
+        const postToBufferScheduled = async (caption, imageDataUrl, scheduledAt, key) => {
         setBufferStatus(s => ({ ...s, [key]: 'Sending…' }));
         try {
             const r = await fetch(BUFFER_WORKER_URL, {
@@ -1432,7 +1503,10 @@ function App() {
                                                 </td>
                                                 <td style={{padding:'0.25rem 0.35rem', whiteSpace:'nowrap', textAlign:'left'}}><span style={{background:{Tuesday:'#e0f2fe',Thursday:'#d1fae5',Saturday:'#ffedd5'}[row.day]||'#eee', padding:'0.1rem 0.35rem', borderRadius:'4px', fontSize:'0.7rem', fontWeight:600}}>{row.day.slice(0,3)}</span></td>
                                                 <td style={{padding:'0.25rem 0.35rem', color:'#6c757d', whiteSpace:'nowrap', textAlign:'left'}}>{runTimeStr}</td>
-                                                <td style={{padding:'0.25rem 0.35rem', fontWeight:600, color:tideColor, whiteSpace:'nowrap', textAlign:'left'}}>{row.tide}</td>
+                                                <td style={{padding:'0.25rem 0.35rem', fontWeight:600, color:tideColor, whiteSpace:'nowrap', textAlign:'left'}}>
+                                                    {row.tide}
+                                                    {row.runTime && <span style={{fontWeight:400, color:'#888', fontSize:'0.72rem', marginLeft:'0.3rem'}}>{row.runTime.toLocaleDateString('en-NZ', {day:'numeric', month:'short', timeZone:'Pacific/Auckland'}).replace(' ', '-')}</span>}
+                                                </td>
                                             </tr>
                                         );
                                     })}
@@ -1594,6 +1668,22 @@ function App() {
                                                 disabled={!post.photo}>
                                             Download Instagram Image
                                         </button>
+                                    </div>
+                                    <div style={{marginTop:'0.5rem'}}>
+                                        <button
+                                            onClick={async () => {
+                                                const imgDataUrl = await getResizedDataUrl(post);
+                                                const schedDay = {Tuesday:1, Thursday:3, Saturday:5}[post.day];
+                                                const schedTime = nextNZTSchedule(schedDay, 8, 0);
+                                                await postToBufferScheduled(caption, imgDataUrl, schedTime, index);
+                                            }}
+                                            disabled={!post.photo}
+                                            style={{width:'100%', padding:'0.6rem', background:'#E1306C', color:'white',
+                                                    border:'none', borderRadius:'8px', fontWeight:'600', fontSize:'0.85rem',
+                                                    cursor: post.photo ? 'pointer' : 'not-allowed', opacity: post.photo ? 1 : 0.5}}>
+                                            📸 Post to Instagram Buffer
+                                        </button>
+                                        {bufferStatus[index] && <div style={{marginTop:'0.3rem', fontSize:'0.75rem', textAlign:'center', color: bufferStatus[index].startsWith('✅') ? 'green' : bufferStatus[index].startsWith('❌') ? 'red' : '#666'}}>{bufferStatus[index]}</div>}
                                     </div>
                                     <div style={{marginTop:'0.5rem'}}>
                                         <button
