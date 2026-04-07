@@ -290,7 +290,7 @@ function App() {
 
     const torchLine = (post) => {
         if (post.day !== 'Tuesday' && post.day !== 'Thursday') return '';
-        return isNZWinter() ? '\n🔦 Bring a torch' : '';
+        return isNZWinter() ? '\n🔦 Bring a torch.' : '';
     };
 
     const ALL_FIXED_TIDE_RUNS = [
@@ -832,7 +832,7 @@ function App() {
     };
 
     const generateEmailText = (posts) => {
-        let out = "Runs...";
+        let out = "Runs this week...";
         posts.forEach((post) => {
             const tide = tideInfo[post.day];
             const weather = weatherInfo[post.day];
@@ -846,7 +846,7 @@ function App() {
     };
 
     const generateEmailTextHTML = (posts) => {
-        let out = "<strong>Runs...</strong>";
+        let out = "<strong>Runs this week...</strong>";
         posts.forEach((post, index) => {
             const tide = tideInfo[post.day];
             const weather = weatherInfo[post.day];
