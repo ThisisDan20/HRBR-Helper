@@ -828,7 +828,7 @@ function App() {
     };
 
     const generateEmailText = (posts) => {
-        let out = "Runs this week...";
+        let out = "Runs this week...\n\n🟠 Join our Strava club: https://strava.app.link/mTXtNG8dR1b";
         posts.forEach((post) => {
             const tide = tideInfo[post.day];
             const weather = weatherInfo[post.day];
@@ -842,7 +842,7 @@ function App() {
     };
 
     const generateEmailTextHTML = (posts) => {
-        let out = "<strong>Runs this week...</strong>";
+        let out = `<strong>Runs this week...</strong><br><br>🟠 Join our Strava club: <a href="https://strava.app.link/mTXtNG8dR1b" target="_blank">https://strava.app.link/mTXtNG8dR1b</a>`;
         posts.forEach((post, index) => {
             const tide = tideInfo[post.day];
             const weather = weatherInfo[post.day];
@@ -855,8 +855,9 @@ function App() {
             const mapLine = post.location.link 
                 ? `<br>🗺️ <a href="${post.location.link}" target="_blank">${post.location.link}</a>` : '';
             const diffHtml = post.difficulty ? `<br>🏃 ${post.difficulty}` : '';
+            const torchHtml = torchLine(post).replace(/\n/g, '<br>');
             const dogHtml = dogLine(post).replace(/\n/g, '<br>');
-            out += `<br><br>${firstLine}${rest ? '<br>' + rest : ''}${diffHtml}${dogHtml}${tideText}<br>📍 ${address}.${mapLine}`;
+            out += `<br><br>${firstLine}${rest ? '<br>' + rest : ''}${diffHtml}${torchHtml}${dogHtml}${tideText}<br>📍 ${address}.${mapLine}`;
         });
         return out;
     };
