@@ -293,14 +293,10 @@ function App() {
         return isNZWinter() ? '\n🔦 Bring a torch.' : '';
     };
 
-    const ALL_FIXED_TIDE_RUNS = [
+    const FIXED_TIDE_RUNS = [
         { name: 'Mill Bay',  day: 'Tuesday',  hour: 17, min: 15, lat: -36.9985, lng: 174.5320, station: 'onehunga' },
         { name: 'Laingholm', day: 'Thursday', hour: 18, min: 0,  lat: -36.9701, lng: 174.5501, station: 'onehunga' },
     ];
-    // Hide Laingholm during winter (no DST) — runs are at night, tides less relevant
-    const FIXED_TIDE_RUNS = ALL_FIXED_TIDE_RUNS.filter(r =>
-        !(r.name === 'Laingholm' && isNZWinter())
-    );
 
     const getRunDateForDay = (dayName, hour, min) => {
         const today = new Date();
