@@ -1582,8 +1582,19 @@ function App() {
                             <button onClick={async () => {
                                     try {
                                         const dataUrl = await generateWeeklyInstagramImage();
+                                        // Re-compress to reduce payload size before sending to worker
+                                        const img = new Image();
+                                        const compressed = await new Promise(res => {
+                                            img.onload = () => {
+                                                const c = document.createElement('canvas');
+                                                c.width = 1080; c.height = 1080;
+                                                c.getContext('2d').drawImage(img, 0, 0);
+                                                res(c.toDataURL('image/jpeg', 0.75));
+                                            };
+                                            img.src = dataUrl;
+                                        });
                                         const caption = generateCaption(posts.find(p => p.day === 'Saturday') || posts[0]);
-                                        await postToBufferScheduled(caption, dataUrl, nextNZTSchedule(0, 21, 0), 'weekly');
+                                        await postToBufferScheduled(caption, compressed, nextNZTSchedule(0, 21, 0), 'weekly');
                                     } catch(e) {
                                         setBufferStatus(s => ({ ...s, weekly: `❌ ${e.message}` }));
                                     }
