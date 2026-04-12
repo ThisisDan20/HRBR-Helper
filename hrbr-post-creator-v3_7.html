@@ -1593,7 +1593,7 @@ function App() {
                                             };
                                             img.src = dataUrl;
                                         });
-                                        const caption = generateCaption(posts.find(p => p.day === 'Saturday') || posts[0]);
+                                        const caption = generateEmailText(posts);
                                         await postToBufferScheduled(caption, compressed, nextNZTSchedule(0, 21, 0), 'weekly');
                                     } catch(e) {
                                         setBufferStatus(s => ({ ...s, weekly: `❌ ${e.message}` }));
