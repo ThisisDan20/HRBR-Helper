@@ -109,7 +109,14 @@ const BUFFER_INSTAGRAM_CHANNEL_ID = '69c8d72caf47dacb6967a83d';
 function nextNZTSchedule(weekday, hour, minute) {
     const now = new Date();
     const nztNow = new Date(now.toLocaleString('en-US', {timeZone: 'Pacific/Auckland'}));
-    const diff = ((weekday - nztNow.getDay() + 7) % 7) || 7;
+    let diff = (weekday - nztNow.getDay() + 7) % 7;
+    // If today is the right day, check if the time has already passed
+    // If not yet passed, use today (diff=0); if passed, use next week (diff=7)
+    if (diff === 0) {
+        const todayTarget = new Date(nztNow);
+        todayTarget.setHours(hour, minute, 0, 0);
+        if (nztNow >= todayTarget) diff = 7; // already past, use next week
+    }
     const targetNZT = new Date(nztNow);
     targetNZT.setDate(nztNow.getDate() + diff);
     targetNZT.setHours(hour, minute, 0, 0);
@@ -1573,10 +1580,13 @@ function App() {
                         </button>
                         <div style={{display:'flex', flexDirection:'column', alignItems:'center', gap:'0.3rem'}}>
                             <button onClick={async () => {
-                                    const canvas = document.getElementById('canvas');
-                                    const dataUrl = canvas.toDataURL('image/jpeg', 0.95);
-                                    const caption = generateCaption(posts.find(p => p.day === 'Saturday') || posts[0]);
-                                    await postToBufferScheduled(caption, dataUrl, nextNZTSchedule(0, 21, 0), 'weekly');
+                                    try {
+                                        const dataUrl = await generateWeeklyInstagramImage();
+                                        const caption = generateCaption(posts.find(p => p.day === 'Saturday') || posts[0]);
+                                        await postToBufferScheduled(caption, dataUrl, nextNZTSchedule(0, 21, 0), 'weekly');
+                                    } catch(e) {
+                                        setBufferStatus(s => ({ ...s, weekly: `❌ ${e.message}` }));
+                                    }
                                 }}
                                 style={{background:'#E1306C', color:'white', border:'none', borderRadius:'10px',
                                         padding:'0.75rem 2rem', fontSize:'1rem', fontWeight:'700', cursor:'pointer',
