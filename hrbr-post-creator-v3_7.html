@@ -195,7 +195,7 @@ Meet: Laingholm beach on the shells.` },
       meetingSpot: "Thip Thai Restaurant, 26 Glenmall Place, Glen Eden, Auckland 0602",
       lat: -36.9169, lng: 174.6419,
       dogFriendly: "🐕 Dogs ok, on lead.",
-      text: `Thursday ${nextThursday} Curry night, Waikumete
+      text: `Thursday ${nextThursday} 6pm - Curry night, Waikumete
 1hr, 7km trails, tracks, gravel and graves run around Waikumete cemetery. All welcome — we run together and no one gets left behind.
 Meet outside Thip Thai restaurant at 6:00pm.` }
 ];
@@ -840,7 +840,7 @@ function App() {
             const address = post.location.meetingSpot || post.location.name;
             const bodyText = textWithWeather(post.text, weather);
             const mapLine = post.location.link ? `\n🗺️ ${post.location.link}` : '';
-            out += `\n\n${bodyText}${difficultyLine(post)}${dogLine(post)}${tideText}\n📍 ${address}.${mapLine}`;
+            out += `\n\n${bodyText}${difficultyLine(post)}${torchLine(post)}${dogLine(post)}${tideText}\n📍 ${address}.${mapLine}`;
         });
         return out;
     };
@@ -1372,7 +1372,7 @@ function App() {
         return {
             title: `HRBR Run ${post.text.split('\n')[0]}` || `HRBR ${post.day} Group Run`,
             type: "Group Run",
-            description: `${bodyText}${tideText}\n📍 ${address}.${post.location.link ? '\n🗺️ ' + post.location.link : ''}`,
+            description: `${bodyText}${difficultyLine(post)}${torchLine(post)}${dogLine(post)}${tideText}\n📍 ${address}.${post.location.link ? '\n🗺️ ' + post.location.link : ''}`,
             location: post.location.meetingSpot || post.location.name,
             mapLink: post.location.link
         };
