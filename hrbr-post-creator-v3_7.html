@@ -1652,7 +1652,17 @@ function App() {
                                     <div style={{marginTop:'0.5rem'}}>
                                         <button
                                             onClick={async () => {
-                                                const imgDataUrl = await getResizedDataUrl(post);
+                                                const tide = tideInfo[post.day];
+                                                const weather = weatherInfo[post.day];
+                                                const blobUrl = await generateInstagramImage(post, tide, weather);
+                                                // Convert blob URL to base64 for sending to worker
+                                                const blob = await fetch(blobUrl).then(r => r.blob());
+                                                const imgDataUrl = await new Promise(res => {
+                                                    const reader = new FileReader();
+                                                    reader.onload = () => res(reader.result);
+                                                    reader.readAsDataURL(blob);
+                                                });
+                                                URL.revokeObjectURL(blobUrl);
                                                 const schedDay = {Tuesday:1, Thursday:3, Saturday:5}[post.day];
                                                 const schedTime = nextNZTSchedule(schedDay, 8, 0);
                                                 await postToBufferScheduled(caption, imgDataUrl, schedTime, index);
