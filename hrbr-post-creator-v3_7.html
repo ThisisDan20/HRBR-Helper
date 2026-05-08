@@ -892,24 +892,26 @@ function App() {
             const renderImage = () => {
                 const canvas = canvasRef.current;
                 const ctx = canvas.getContext('2d');
-                const size = 1080;
-                canvas.width = size;
-                canvas.height = size;
+                const W = 1080, H = 1350; // 4:5 ratio
+                canvas.width = W;
+                canvas.height = H;
                 
-                // Calculate crop to center
+                // Crop source to 4:5 ratio, centered
+                const targetAspect = W / H; // 0.8
                 const imgAspect = img.width / img.height;
                 let sx, sy, sWidth, sHeight;
-                
-                if (imgAspect > 1) {
-                    sHeight = img.height; sWidth = img.height;
+                if (imgAspect > targetAspect) {
+                    // wider than 4:5 — crop sides
+                    sHeight = img.height; sWidth = sHeight * targetAspect;
                     sx = (img.width - sWidth) / 2; sy = 0;
                 } else {
-                    sWidth = img.width; sHeight = img.width;
+                    // taller than 4:5 — crop top/bottom
+                    sWidth = img.width; sHeight = sWidth / targetAspect;
                     sx = 0; sy = (img.height - sHeight) / 2;
                 }
                 
-                // Draw cropped and centered image
-                ctx.drawImage(img, sx, sy, sWidth, sHeight, 0, 0, size, size);
+                // Draw cropped image to 4:5 canvas
+                ctx.drawImage(img, sx, sy, sWidth, sHeight, 0, 0, W, H);
                 
                 // Helper function to draw text with white background
                 const drawTextWithBackground = (text, x, y, fontSize, fontWeight = '700', padding = 20) => {
@@ -958,7 +960,7 @@ function App() {
                 // Returns max text width for a given y position - narrow if logo is in the way
                 const maxTextWidth = (yPos) => {
                     if (yPos - dayFontSize < logoBottom) return logoX - 60;
-                    return size - 160;
+                    return W - 160;
                 };
                 
                 // Parse first line to extract components
@@ -1131,11 +1133,21 @@ function App() {
         if (!post.photo) return resolve(null);
         const img = new Image();
         img.onload = () => {
-            const size = 1080; const canvas = document.createElement('canvas');
-            canvas.width = size; canvas.height = size;
+            const W = 1080, H = 1350;
+            const canvas = document.createElement('canvas');
+            canvas.width = W; canvas.height = H;
             const ctx = canvas.getContext('2d');
-            const s = Math.min(img.width, img.height);
-            ctx.drawImage(img, (img.width-s)/2, (img.height-s)/2, s, s, 0, 0, size, size);
+            const targetAspect = W / H;
+            const imgAspect = img.width / img.height;
+            let sx, sy, sw, sh;
+            if (imgAspect > targetAspect) {
+                sh = img.height; sw = sh * targetAspect;
+                sx = (img.width - sw) / 2; sy = 0;
+            } else {
+                sw = img.width; sh = sw / targetAspect;
+                sx = 0; sy = (img.height - sh) / 2;
+            }
+            ctx.drawImage(img, sx, sy, sw, sh, 0, 0, W, H);
             resolve(canvas.toDataURL('image/jpeg', 0.92));
         };
         img.onerror = () => resolve(null);
@@ -1220,15 +1232,21 @@ function App() {
                 try {
                     const canvas = canvasRef.current;
                     const ctx = canvas.getContext('2d');
-                    const W = 1080, H = 1080;
+                    const W = 1080, H = 1350; // 4:5 ratio
                     canvas.width = W;
                     canvas.height = H;
 
-                    // --- Background: topo map, dark green overlay ---
+                    // --- Background: topo map cropped to 4:5 ---
+                    const targetAspect = W / H;
                     const imgAspect = topoImg.width / topoImg.height;
                     let sx, sy, sw, sh;
-                    if (imgAspect > 1) { sh = topoImg.height; sw = sh; sx = (topoImg.width - sw)/2; sy = 0; }
-                    else               { sw = topoImg.width; sh = sw; sx = 0; sy = (topoImg.height - sh)/2; }
+                    if (imgAspect > targetAspect) {
+                        sh = topoImg.height; sw = sh * targetAspect;
+                        sx = (topoImg.width - sw)/2; sy = 0;
+                    } else {
+                        sw = topoImg.width; sh = sw / targetAspect;
+                        sx = 0; sy = (topoImg.height - sh)/2;
+                    }
                     ctx.drawImage(topoImg, sx, sy, sw, sh, 0, 0, W, H);
 
                     // --- Logo top-right (white bg, same as daily) ---
@@ -1278,10 +1296,9 @@ function App() {
                                         (detailFontSize * 1.2 + lineGap) +
                                         (locFontSize * 1.2);
 
-                    // --- bottom-align blocks above the strava bar ---
-                    // Saturday (i=2) bottom-aligns to contentBottom
+                    // --- evenly spread blocks in the taller canvas (Option A) ---
                     const contentBottom = H - stravaBarH - 74;
-                    const blockGap = 57; // produces ~25px visual gap between pill blocks
+                    const blockGap = 90; // more space between blocks in 4:5
 
                     // blockBottomY[i] = y of the baseline of the last pill in block i
                     // work upwards from Sat
@@ -1582,7 +1599,7 @@ function App() {
                                         const compressed = await new Promise(res => {
                                             img.onload = () => {
                                                 const cv = document.createElement('canvas');
-                                                cv.width = 1080; cv.height = 1080;
+                                                cv.width = 1080; cv.height = 1350;
                                                 cv.getContext('2d').drawImage(img, 0, 0);
                                                 res(cv.toDataURL('image/jpeg', 0.75));
                                             };
