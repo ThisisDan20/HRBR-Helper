@@ -57,7 +57,7 @@ body::before { content:''; position:fixed; top:0; left:0; right:0; bottom:0; bac
 .photo-upload { border:2px dashed #dee2e6; border-radius:12px; padding:2rem; text-align:center; cursor:pointer; background:#e9ecef; }
 .photo-upload:hover { border-color:var(--forest); }
 .photo-upload.has-image { padding:0; border-color:var(--forest); }
-.photo-preview { width:100%; height:300px; object-fit:cover; border-radius:10px; }
+.photo-preview { width:100%; aspect-ratio:4/5; object-fit:cover; border-radius:10px; }
 input[type="file"] { display:none; }
 textarea, select, input[type="text"] { width:100%; padding:0.875rem; background:#fff; border:2px solid #dee2e6; border-radius:12px; font-family:Inter; font-size:0.95rem; }
 textarea { min-height:120px; resize:vertical; }
@@ -896,16 +896,15 @@ function App() {
                 canvas.width = W;
                 canvas.height = H;
                 
-                // Crop source to 4:5 ratio, centered
-                const targetAspect = W / H; // 0.8
+                // Calculate crop to center
                 const imgAspect = img.width / img.height;
                 let sx, sy, sWidth, sHeight;
+                
+                const targetAspect = W / H;
                 if (imgAspect > targetAspect) {
-                    // wider than 4:5 — crop sides
                     sHeight = img.height; sWidth = sHeight * targetAspect;
                     sx = (img.width - sWidth) / 2; sy = 0;
                 } else {
-                    // taller than 4:5 — crop top/bottom
                     sWidth = img.width; sHeight = sWidth / targetAspect;
                     sx = 0; sy = (img.height - sHeight) / 2;
                 }
@@ -1296,7 +1295,8 @@ function App() {
                                         (detailFontSize * 1.2 + lineGap) +
                                         (locFontSize * 1.2);
 
-                    // --- evenly spread blocks in the taller canvas (Option A) ---
+                    // --- bottom-align blocks above the strava bar ---
+                    // Saturday (i=2) bottom-aligns to contentBottom
                     const contentBottom = H - stravaBarH - 74;
                     const blockGap = 90; // more space between blocks in 4:5
 
@@ -1671,7 +1671,7 @@ function App() {
                                     </div>
                                 </div>
 
-                                <div className="strava-section">
+                                {post.day !== 'Tuesday' && <div className="strava-section">
                                     <div className="strava-top">
                                         <div className={`day-badge ${post.day.toLowerCase()}`} style={{fontSize:'0.85rem', padding:'0.35rem 0.75rem'}}>
                                             {post.day}
@@ -1707,7 +1707,7 @@ function App() {
                                         </div>
                                     </div>
                                     </div>
-                                </div>
+                                </div>}
                             </div>
                             );
                         })}
