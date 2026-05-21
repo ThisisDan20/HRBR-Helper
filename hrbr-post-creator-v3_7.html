@@ -537,7 +537,7 @@ function App() {
         const tideText = tide ? `\n🌊 Low Tide: ${tide}` : '';
         const address = post.location.meetingSpot || post.location.name;
         const bodyText = textWithWeather(post.text, weather);
-        const mapLine = post.location.link ? `\n🗺️ Map link for the start/finish: ${post.location.link}` : '';
+        const mapLine = '';
         const stravaLine = `\n🟠 Join our Strava club and events: https://strava.app.link/mTXtNG8dR1b`;
         return `HRBR Run ${bodyText}${difficultyLine(post)}${torchLine(post)}${dogLine(post)}${tideText}\n📍 ${address}.${mapLine}${stravaLine}\n\n${hashtags}`;
     };
@@ -839,7 +839,7 @@ function App() {
             const tideText = tide ? `\n🌊 Low Tide: ${tide}` : '';
             const address = post.location.meetingSpot || post.location.name;
             const bodyText = textWithWeather(post.text, weather);
-            const mapLine = post.location.link ? `\n🗺️ ${post.location.link}` : '';
+            const mapLine = '';
             out += `\n\n${bodyText}${difficultyLine(post)}${torchLine(post)}${dogLine(post)}${tideText}\n📍 ${address}.${mapLine}`;
         });
         return out;
@@ -856,8 +856,7 @@ function App() {
             const lines = bodyText.split('\n').filter(l => l.trim());
             const firstLine = `<strong>${lines[0]}</strong>`;
             const rest = lines.slice(1).join('<br>');
-            const mapLine = post.location.link 
-                ? `<br>🗺️ <a href="${post.location.link}" target="_blank">${post.location.link}</a>` : '';
+            const mapLine = '';
             const diffHtml = post.difficulty ? `<br>🏃 ${post.difficulty}` : '';
             const torchHtml = torchLine(post).replace(/\n/g, '<br>');
             const dogHtml = dogLine(post).replace(/\n/g, '<br>');
@@ -1385,7 +1384,7 @@ function App() {
         return {
             title: `HRBR Run ${post.text.split('\n')[0]}` || `HRBR ${post.day} Group Run`,
             type: "Group Run",
-            description: `${bodyText}${difficultyLine(post)}${torchLine(post)}${dogLine(post)}${tideText}\n📍 ${address}.${post.location.link ? '\n🗺️ ' + post.location.link : ''}`,
+            description: `${bodyText}${difficultyLine(post)}${torchLine(post)}${dogLine(post)}${tideText}\n📍 ${address}.`,
             location: post.location.meetingSpot || post.location.name,
             mapLink: post.location.link
         };
@@ -1602,7 +1601,7 @@ function App() {
                                             img.src = dataUrl;
                                         });
                                         const caption = generateEmailText(posts);
-                                        await postToBufferScheduled(caption, compressed, nextNZTSchedule(0, 21, 0), 'weekly');
+                                        await postToBufferScheduled(caption, compressed, nextNZTSchedule(0, 19, 0), 'weekly');
                                     } catch(e) {
                                         setBufferStatus(s => ({ ...s, weekly: `❌ ${e.message}` }));
                                     }
@@ -1610,7 +1609,7 @@ function App() {
                                 style={{background:'#E1306C', color:'white', border:'none', borderRadius:'10px',
                                         padding:'0.75rem 2rem', fontSize:'1rem', fontWeight:'700', cursor:'pointer',
                                         boxShadow:'0 2px 8px rgba(225,48,108,0.3)'}}>
-                                📸 Post Weekly Image → Buffer (Sun 9pm)
+                                📸 Post Weekly Image → Buffer (Sun 7pm)
                             </button>
                             {bufferStatus.weekly && <div style={{fontSize:'0.8rem', color: bufferStatus.weekly.startsWith('✅') ? 'green' : bufferStatus.weekly.startsWith('❌') ? 'red' : '#666'}}>{bufferStatus.weekly}</div>}
                         </div>
@@ -1664,14 +1663,14 @@ function App() {
                                                 });
                                                 URL.revokeObjectURL(blobUrl);
                                                 const schedDay = {Tuesday:1, Thursday:3, Saturday:5}[post.day];
-                                                const schedTime = nextNZTSchedule(schedDay, 8, 0);
+                                                const schedTime = nextNZTSchedule(schedDay, 19, 0);
                                                 await postToBufferScheduled(caption, imgDataUrl, schedTime, index);
                                             }}
                                             disabled={!post.photo}
                                             style={{width:'100%', padding:'0.6rem', background:'#E1306C', color:'white',
                                                     border:'none', borderRadius:'8px', fontWeight:'600', fontSize:'0.85rem',
                                                     cursor: post.photo ? 'pointer' : 'not-allowed', opacity: post.photo ? 1 : 0.5}}>
-                                            📸 Post to Instagram Buffer ({{'Tuesday':'Mon','Thursday':'Wed','Saturday':'Fri'}[post.day]} 8am)
+                                            📸 Post to Instagram Buffer ({{'Tuesday':'Mon','Thursday':'Wed','Saturday':'Fri'}[post.day]} 7pm)
                                         </button>
                                         {bufferStatus[index] && <div style={{marginTop:'0.3rem', fontSize:'0.75rem', textAlign:'center', color: bufferStatus[index].startsWith('✅') ? 'green' : bufferStatus[index].startsWith('❌') ? 'red' : '#666'}}>{bufferStatus[index]}</div>}
                                     </div>
