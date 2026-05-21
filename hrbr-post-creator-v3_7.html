@@ -538,7 +538,7 @@ function App() {
         const address = post.location.meetingSpot || post.location.name;
         const bodyText = textWithWeather(post.text, weather);
         const mapLine = '';
-        const stravaLine = `\n🟠 Join our Strava club and events: https://strava.app.link/mTXtNG8dR1b`;
+        const stravaLine = `\n🔶 Join our Strava club and events: https://strava.app.link/mTXtNG8dR1b`;
         return `HRBR Run ${bodyText}${difficultyLine(post)}${torchLine(post)}${dogLine(post)}${tideText}\n📍 ${address}.${mapLine}${stravaLine}\n\n${hashtags}`;
     };
     
@@ -832,7 +832,7 @@ function App() {
     };
 
     const generateEmailText = (posts) => {
-        let out = "Runs this week...\n\n🟠 Join our Strava club and events: https://strava.app.link/mTXtNG8dR1b";
+        let out = "Runs this week...\n\n🔶 Join our Strava club and events: https://strava.app.link/mTXtNG8dR1b";
         posts.forEach((post) => {
             const tide = tideInfo[post.day];
             const weather = weatherInfo[post.day];
@@ -846,7 +846,7 @@ function App() {
     };
 
     const generateEmailTextHTML = (posts) => {
-        let out = `<strong>Runs this week...</strong><br><br>🟠 Join our Strava club and events: <a href="https://strava.app.link/mTXtNG8dR1b" target="_blank">https://strava.app.link/mTXtNG8dR1b</a>`;
+        let out = `<strong>Runs this week...</strong><br><br>🔶 Join our Strava club and events: <a href="https://strava.app.link/mTXtNG8dR1b" target="_blank">https://strava.app.link/mTXtNG8dR1b</a>`;
         posts.forEach((post, index) => {
             const tide = tideInfo[post.day];
             const weather = weatherInfo[post.day];
