@@ -220,6 +220,7 @@ function App() {
     const [tideCache, setTideCache] = useState(null); // loaded from tides.json
     const [showHowTo, setShowHowTo] = useState(false);
     const [bufferStatus, setBufferStatus] = useState({});
+    const [expandedCards, setExpandedCards] = useState({});
     const fileInputRefs = [useRef(), useRef(), useRef()];
     const canvasRef = useRef();
 
@@ -538,7 +539,7 @@ function App() {
         const address = post.location.meetingSpot || post.location.name;
         const bodyText = textWithWeather(post.text, weather);
         const mapLine = '';
-        const stravaLine = `\n🔶 Join our Strava club and events: https://strava.app.link/mTXtNG8dR1b`;
+        const stravaLine = `\n🔶 Join our Strava club: https://strava.app.link/mTXtNG8dR1b`;
         return `HRBR Run ${bodyText}${difficultyLine(post)}${torchLine(post)}${dogLine(post)}${tideText}\n📍 ${address}.${mapLine}${stravaLine}\n\n${hashtags}`;
     };
     
@@ -549,6 +550,7 @@ function App() {
             const day = dayMatch ? dayMatch[1] : post.day;
             const shortDay = dayShort[day] || day;
             let location = post.location.name;
+            location = location.replace(/,\s*Parau/g, '');
             location = location.replace(/Exhibition Drive/g, 'Exhibition Dr');
             location = location.replace(/Regional Park/g, 'Reg Park');
             location = location.replace(/Reserve/g, 'Res');
@@ -907,7 +909,6 @@ function App() {
                     sWidth = img.width; sHeight = sWidth / targetAspect;
                     sx = 0; sy = (img.height - sHeight) / 2;
                 }
-                // Draw cropped image to 4:5 canvas
                 ctx.drawImage(img, sx, sy, sWidth, sHeight, 0, 0, W, H);
                 
                 // Helper function to draw text with white background
@@ -946,7 +947,7 @@ function App() {
                 const logoWidth = 250;
                 const logoHeight = (logoImg.height / logoImg.width) * logoWidth;
                 const logoPadding = 15;
-                const logoX = W - logoWidth - 40 - logoPadding;
+                const logoX = size - logoWidth - 40 - logoPadding;
                 const logoBottom = 40 - logoPadding + logoHeight + logoPadding * 2; // y where logo ends
 
                 // Top overlay - Day, Time, and Location name with YELLOW background
@@ -1022,7 +1023,7 @@ function App() {
                 // White background extending to right edge
                 ctx.fillStyle = 'rgba(255, 255, 255, 0.95)';
                 ctx.fillRect(logoX - logoPadding, 40 - logoPadding, 
-                            W - (logoX - logoPadding), logoHeight + logoPadding*2);
+                            size - (logoX - logoPadding), logoHeight + logoPadding*2);
                 
                 // Draw logo
                 ctx.drawImage(logoImg, logoX, 40, logoWidth, logoHeight);
@@ -1293,7 +1294,7 @@ function App() {
                     // --- bottom-align blocks above the strava bar ---
                     // Saturday (i=2) bottom-aligns to contentBottom
                     const contentBottom = H - stravaBarH - 74;
-                    const blockGap = 90; // more space between blocks in 4:5
+                    const blockGap = 90; // produces ~25px visual gap between pill blocks
 
                     // blockBottomY[i] = y of the baseline of the last pill in block i
                     // work upwards from Sat
@@ -1515,14 +1516,6 @@ function App() {
                         <div className="section">
                             <div className="section-label">Location</div>
                             
-                            {index === 0 && (
-                                <label className="checkbox-container">
-                                    <input type="checkbox" checked={post.useSavedLocation}
-                                           onChange={(e) => handleTuesdayToggle(e.target.checked)} />
-                                    <span>Use Tuesday default location</span>
-                                </label>
-                            )}
-
                             {index === 1 && (
                                 <select value={post.selectedLocationIndex}
                                         onChange={(e) => handleThursdaySelect(e.target.value)}>
@@ -1622,7 +1615,9 @@ function App() {
                             return (
                                 <div key={index} className={`preview-card ${post.day.toLowerCase()}`}>
                                 <div className={`social-section ${post.day.toLowerCase()}`}>
-                                    <div style={{borderBottom:'2px solid rgba(255,255,255,0.3)', paddingBottom:'1rem', marginBottom:'1rem'}}>
+                                    <div style={{borderBottom:'2px solid rgba(255,255,255,0.3)', paddingBottom:'1rem', marginBottom:'1rem', cursor:'pointer'}}
+                                         onClick={() => setExpandedCards(s => ({...s, [index]: !s[index]}))}>
+                                        <div style={{display:'flex', alignItems:'center', gap:'0.75rem', justifyContent:'space-between'}}>
                                         <div style={{display:'flex', alignItems:'center', gap:'0.75rem'}}>
                                             <div className={`day-badge ${post.day.toLowerCase()}`} style={{fontSize:'0.85rem', padding:'0.35rem 0.75rem'}}>
                                                 {post.day}
@@ -1633,6 +1628,7 @@ function App() {
                                         </div>
                                     </div>
                                     
+                                    {expandedCards[index] && <div>
                                     <div className="preview-content" style={{padding:'1rem', borderRadius:'8px', marginBottom:'1rem', whiteSpace:'pre-wrap', lineHeight:1.6}}>
                                         {caption}
                                     </div>
@@ -1648,20 +1644,12 @@ function App() {
                                             Download Instagram Image
                                         </button>
                                     </div>
+                                    </div>}
+                                    </div>}
                                     <div style={{marginTop:'0.5rem'}}>
                                         <button
                                             onClick={async () => {
-                                                const tide = tideInfo[post.day];
-                                                const weather = weatherInfo[post.day];
-                                                const blobUrl = await generateInstagramImage(post, tide, weather);
-                                                // Convert blob URL to base64 for sending to worker
-                                                const blob = await fetch(blobUrl).then(r => r.blob());
-                                                const imgDataUrl = await new Promise(res => {
-                                                    const reader = new FileReader();
-                                                    reader.onload = () => res(reader.result);
-                                                    reader.readAsDataURL(blob);
-                                                });
-                                                URL.revokeObjectURL(blobUrl);
+                                                const imgDataUrl = await getResizedDataUrl(post);
                                                 const schedDay = {Tuesday:1, Thursday:3, Saturday:5}[post.day];
                                                 const schedTime = nextNZTSchedule(schedDay, 19, 0);
                                                 await postToBufferScheduled(caption, imgDataUrl, schedTime, index);
