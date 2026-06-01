@@ -1645,7 +1645,6 @@ function App() {
                                         </button>
                                     </div>
                                     </div>}
-                                    </div>}
                                     <div style={{marginTop:'0.5rem'}}>
                                         <button
                                             onClick={async () => {
@@ -1664,7 +1663,8 @@ function App() {
                                     </div>
                                 </div>
 
-                                {post.day !== 'Tuesday' && <div className="strava-section">
+                                {expandedCards[index] && post.day !== 'Tuesday' && (
+                                <div className="strava-section">
                                     <div className="strava-top">
                                         <div className={`day-badge ${post.day.toLowerCase()}`} style={{fontSize:'0.85rem', padding:'0.35rem 0.75rem'}}>
                                             {post.day}
@@ -1700,7 +1700,8 @@ function App() {
                                         </div>
                                     </div>
                                     </div>
-                                </div>}
+                                </div>
+                                )}
                             </div>
                             );
                         })}
