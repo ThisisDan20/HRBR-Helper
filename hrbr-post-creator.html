@@ -1645,11 +1645,11 @@ function App() {
                                     <span style={{fontSize:'0.9rem', color:'rgba(255,255,255,0.8)'}}>{expandedCards[index] ? '▲' : '▼'}</span>
                                 </div>
                                     
+                                    {expandedCards[index] && <div>
                                     <div className="preview-content" style={{padding:'1rem', borderRadius:'8px', marginBottom:'1rem', whiteSpace:'pre-wrap', lineHeight:1.6}}>
                                         {caption}
                                     </div>
                                     
-                                    {expandedCards[index] && <div>
                                     <div className="action-buttons">
                                         <button className="copy-btn"
                                                 onClick={() => copyToClipboard(caption, index)}>
