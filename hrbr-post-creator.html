@@ -9,8 +9,8 @@
     - Plain photo for Instagram Buffer posts
     - Removed Tuesday default location checkbox
     - Removed map links from all outputs
-    - Schedule changed to 7pm NZT
-    - 4:5 (1080x1350) image ratio for all Instagram images
+    - Schedule at 7pm NZT
+    - 4:5 (1080x1350) image ratio
     - 🔶 Strava emoji
 -->
 <html>
@@ -908,7 +908,7 @@ function App() {
             const renderImage = () => {
                 const canvas = canvasRef.current;
                 const ctx = canvas.getContext('2d');
-                const W = 1080, H = 1350; // 4:5
+                const W = 1080, H = 1350;
                 canvas.width = W;
                 canvas.height = H;
                 
@@ -1126,13 +1126,13 @@ function App() {
         });
     };
 
-    const postToBufferScheduled = async (caption, imageDataUrl, scheduledAt, key) => {
+    const postToBufferScheduled = async (caption, imageDataUrl, scheduledAt, key, channelId = BUFFER_INSTAGRAM_CHANNEL_ID) => {
         setBufferStatus(s => ({ ...s, [key]: 'Sending…' }));
         try {
             const r = await fetch(BUFFER_WORKER_URL, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ action: 'post', channelId: BUFFER_INSTAGRAM_CHANNEL_ID, caption, images: imageDataUrl ? [imageDataUrl] : [], scheduledAt })
+                body: JSON.stringify({ action: 'post', channelId, caption, images: imageDataUrl ? [imageDataUrl] : [], scheduledAt })
             });
             const data = await r.json();
             setBufferStatus(s => ({ ...s, [key]: data.ok ? '✅ Scheduled!' : `❌ ${data.error || 'Unknown error'}` }));
@@ -1242,7 +1242,7 @@ function App() {
                 try {
                     const canvas = canvasRef.current;
                     const ctx = canvas.getContext('2d');
-                    const W = 1080, H = 1350; // 4:5 ratio
+                    const W = 1080, H = 1350;
                     canvas.width = W;
                     canvas.height = H;
 
@@ -1631,23 +1631,23 @@ function App() {
                                 <div key={index} className={`preview-card ${post.day.toLowerCase()}`}>
                                 <div className={`social-section ${post.day.toLowerCase()}`}>
                                     <div style={{borderBottom:'2px solid rgba(255,255,255,0.3)', paddingBottom:'1rem', marginBottom:'1rem', cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'space-between'}}
-                                         onClick={() => setExpandedCards(s => ({...s, [index]: !s[index]}))}>
-                                        <div style={{display:'flex', alignItems:'center', gap:'0.75rem'}}>
-                                            <div className={`day-badge ${post.day.toLowerCase()}`} style={{fontSize:'0.85rem', padding:'0.35rem 0.75rem'}}>
-                                                {post.day}
-                                            </div>
-                                            <div className="preview-title" style={{fontSize:'1.1rem', fontWeight:700}}>
-                                                Instagram/Facebook
-                                            </div>
+                                     onClick={() => setExpandedCards(s => ({...s, [index]: !s[index]}))}>
+                                    <div style={{display:'flex', alignItems:'center', gap:'0.75rem'}}>
+                                        <div className={`day-badge ${post.day.toLowerCase()}`} style={{fontSize:'0.85rem', padding:'0.35rem 0.75rem'}}>
+                                            {post.day}
                                         </div>
-                                        <span style={{fontSize:'0.9rem', color:'rgba(255,255,255,0.8)'}}>{expandedCards[index] ? '▲' : '▼'}</span>
+                                        <div className="preview-title" style={{fontSize:'1.1rem', fontWeight:700}}>
+                                            Instagram/Facebook
+                                        </div>
                                     </div>
+                                    <span style={{fontSize:'0.9rem', color:'rgba(255,255,255,0.8)'}}>{expandedCards[index] ? '▲' : '▼'}</span>
+                                </div>
                                     
-                                    {expandedCards[index] && <div>
                                     <div className="preview-content" style={{padding:'1rem', borderRadius:'8px', marginBottom:'1rem', whiteSpace:'pre-wrap', lineHeight:1.6}}>
                                         {caption}
                                     </div>
                                     
+                                    {expandedCards[index] && <div>
                                     <div className="action-buttons">
                                         <button className="copy-btn"
                                                 onClick={() => copyToClipboard(caption, index)}>
@@ -1683,13 +1683,7 @@ function App() {
                                                     const imgDataUrl = await getResizedDataUrl(post);
                                                     const schedDay = {Tuesday:1, Thursday:3, Saturday:5}[post.day];
                                                     const schedTime = nextNZTSchedule(schedDay, 19, 0);
-                                                    const r = await fetch(BUFFER_WORKER_URL, {
-                                                        method: 'POST',
-                                                        headers: { 'Content-Type': 'application/json' },
-                                                        body: JSON.stringify({ action: 'post', channelId: BUFFER_FB_CHANNEL_ID, caption, images: imgDataUrl ? [imgDataUrl] : [], scheduledAt: schedTime })
-                                                    });
-                                                    const data = await r.json();
-                                                    setBufferStatus(s => ({ ...s, [index + '-fb']: data.ok ? '✅ Scheduled!' : `❌ ${data.error || 'Unknown error'}` }));
+                                                    await postToBufferScheduled(caption, imgDataUrl, schedTime, index + '-fb', BUFFER_FB_CHANNEL_ID);
                                                 }}
                                                 disabled={!post.photo}
                                                 style={{width:'100%', padding:'0.6rem', background:'#1877F2', color:'white',
