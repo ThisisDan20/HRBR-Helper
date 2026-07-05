@@ -1,8 +1,13 @@
 <!DOCTYPE html>
 <!--
   HRBR Post Creator
-  Version: 3.8
-  Updated: June 2026
+  Version: 3.9
+  Updated: July 2026
+  Changes in v3.9:
+    - Removed Location section from Tuesday card
+    - Updated how-to guide for Buffer workflow
+    - Classic JSX runtime pragma (fixes Babel import error)
+    - Tree favicon
   Changes in v3.8:
     - Added FB Group Buffer buttons (per-day: Mon/Wed/Fri 7pm)
     - Collapsed day cards (expand to see caption/download/Strava)
@@ -1422,10 +1427,10 @@ function App() {
                             {[
                                 { icon:'🌊', step:'1', title:'Sheet loads automatically', desc:'Saturday run locations load from Google Sheets on open. Tide table loads top-right.' },
                                 { icon:'📍', step:'2', title:'Choose locations', desc:'Tuesday is fixed. Pick Thursday and Saturday from the dropdowns.' },
-                                { icon:'📸', step:'3', title:'Upload photos (optional)', desc:'Add a photo to any day\'s card. Required to generate an Instagram image.' },
+                                { icon:'📸', step:'3', title:'Upload photos', desc:'Add a photo to each day\'s card. Required to post to Buffer.' },
                                 { icon:'✨', step:'4', title:'Generate Posts', desc:'Click Generate Posts to fetch live tide and weather for all three days.' },
-                                { icon:'📋', step:'5', title:'Copy your content', desc:'Copy Caption for Instagram/Facebook, Copy Email for the weekly email.' },
-                                { icon:'🖼️', step:'6', title:'Download Instagram image', desc:'Upload a photo first, then click Download Image. Logo, weather and location added automatically.' },
+                                { icon:'📤', step:'5', title:'Post to Buffer', desc:'Each day has Instagram + FB Group buttons. Posts schedule 7pm (Mon/Wed/Fri). Weekly image posts Sun 7pm.' },
+                                { icon:'📋', step:'6', title:'Copy for email', desc:'Expand a day to copy captions. Use Copy Email for the weekly email.' },
                             ].map(item => (
                                 <div key={item.step} style={{display:'flex', gap:'0.75rem', alignItems:'flex-start'}}>
                                     <div style={{fontSize:'1.4rem', flexShrink:0}}>{item.icon}</div>
@@ -1457,7 +1462,7 @@ function App() {
                         <div style={{textAlign:'center'}}>
                             <h1 style={{color:'var(--forest)', marginBottom:'0.2rem'}}>Post Creator</h1>
                             <p style={{color:'#6c757d', fontSize:'0.82rem'}}>Create your weekly running posts</p>
-                            <p style={{color:'#6c757d', fontSize:'0.7rem'}}>v3.8</p>
+                            <p style={{color:'#6c757d', fontSize:'0.7rem'}}>v3.9</p>
                         </div>
                     </div>
                     <div style={{flex:1, minWidth:'300px', background:'white', borderRadius:'12px', padding:'0.9rem', boxShadow:'0 2px 8px rgba(26,95,58,0.1)', border:'1px solid #dee2e6'}}>
@@ -1530,6 +1535,7 @@ function App() {
                                       onChange={(e) => handleTextChange(index, e.target.value)} />
                         </div>
 
+                        {index !== 0 && (
                         <div className="section">
                             <div className="section-label">Location</div>
                             
@@ -1561,6 +1567,7 @@ function App() {
                                 )
                             )}
                         </div>
+                        )}
                     </div>
                 ))}
             </div>
