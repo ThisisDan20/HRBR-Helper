@@ -1,8 +1,14 @@
 <!DOCTYPE html>
 <!--
   HRBR Post Creator
-  Version: 3.9
-  Updated: July 2026
+  Version: 3.9.1
+  Updated: September 2026
+  Changes in v3.9.1:
+    - Tide fix: Whitford moved from Onehunga (Manukau) to Auckland station.
+      Whitford is on the Tamaki Strait / Hauraki Gulf, not the Manukau.
+    - Added missing COASTAL_COORDS entries: Weymouth, Clarks Beach, Armour Bay
+      (all Onehunga/Manukau). Previously fell through to nearest-by-distance.
+    - Saturday tide-table station descriptions corrected to match.
   Changes in v3.9:
     - Removed Location section from Tuesday card
     - Updated how-to guide for Buffer workflow
@@ -362,13 +368,13 @@ function App() {
         const SAT_STATIONS = [
             { name: 'Onehunga (Manukau Harbour)', day: 'Saturday', hour: 14, min: 0,
               lat: -36.9333, lng: 174.7833, station: 'onehunga',
-              desc: 'Cornwallis, Huia, Laingholm, Mill Bay, Whatipu, Onehunga, Whitford, Weymouth, Clarks Beach, Armour Bay' },
+              desc: 'Cornwallis, Huia, Laingholm, Mill Bay, Whatipu, Onehunga, Weymouth, Clarks Beach, Armour Bay' },
             { name: 'Anawhata (West coast ocean)', day: 'Saturday', hour: 14, min: 0,
               lat: -36.9000, lng: 174.4500, station: 'anawhata',
               desc: 'Piha, Te Henga, Karekare, Muriwai' },
             { name: 'Auckland (Waitemata/east/north/gulf)', day: 'Saturday', hour: 14, min: 0,
               lat: -36.8500, lng: 174.7667, station: 'auckland',
-              desc: 'Browns Bay, Bucklands Beach, Castor Bay, Devonport Naval Base, Doves Bay, Kohimarama, Little Shoal Bay, Mahurangi Harbour, Matiatia Bay, Waiheke, Weiti River Entrance' },
+              desc: 'Browns Bay, Bucklands Beach, Castor Bay, Devonport Naval Base, Doves Bay, Kohimarama, Little Shoal Bay, Mahurangi Harbour, Matiatia Bay, Waiheke, Weiti River Entrance, Whitford' },
         ];
         for (const s of SAT_STATIONS) {
             if (!runs.find(r => r.station === s.station && r.day === 'Saturday'))
@@ -591,7 +597,6 @@ function App() {
         'laingholm':          { lat: -36.9701, lng: 174.5501, station: 'onehunga' },
         'mill bay':           { lat: -36.9985, lng: 174.5320, station: 'onehunga' },
         'whatipu':            { lat: -37.0500, lng: 174.4833, station: 'onehunga' },
-        'whitford':           { lat: -36.9167, lng: 175.0167, station: 'onehunga' },
         'browns bay':         { lat: -36.7167, lng: 174.7500, station: 'auckland' },
         'bucklands beach':    { lat: -36.8833, lng: 174.8833, station: 'auckland' },
         'castor bay':         { lat: -36.7333, lng: 174.7333, station: 'auckland' },
@@ -602,7 +607,11 @@ function App() {
         'mahurangi':          { lat: -36.4333, lng: 174.6667, station: 'auckland' },
         'matiatia bay':       { lat: -36.7833, lng: 174.9833, station: 'auckland' },
         'onehunga':           { lat: -36.9333, lng: 174.7833, station: 'onehunga' },
+        'weymouth':           { lat: -37.0350, lng: 174.8670, station: 'onehunga' },
+        'clarks beach':       { lat: -37.1170, lng: 174.8420, station: 'onehunga' },
+        'armour bay':         { lat: -36.9400, lng: 174.6500, station: 'onehunga' },
         'waiheke':            { lat: -36.8000, lng: 175.0833, station: 'auckland' },
+        'whitford':           { lat: -36.9167, lng: 175.0167, station: 'auckland' },
         'weiti river':        { lat: -36.6167, lng: 174.7333, station: 'auckland' },
         'piha':               { lat: -36.9500, lng: 174.4667, station: 'anawhata' },
         'te henga':           { lat: -36.8833, lng: 174.4333, station: 'anawhata' },
@@ -1462,7 +1471,7 @@ function App() {
                         <div style={{textAlign:'center'}}>
                             <h1 style={{color:'var(--forest)', marginBottom:'0.2rem'}}>Post Creator</h1>
                             <p style={{color:'#6c757d', fontSize:'0.82rem'}}>Create your weekly running posts</p>
-                            <p style={{color:'#6c757d', fontSize:'0.7rem'}}>v3.9</p>
+                            <p style={{color:'#6c757d', fontSize:'0.7rem'}}>v3.9.1</p>
                         </div>
                     </div>
                     <div style={{flex:1, minWidth:'300px', background:'white', borderRadius:'12px', padding:'0.9rem', boxShadow:'0 2px 8px rgba(26,95,58,0.1)', border:'1px solid #dee2e6'}}>
