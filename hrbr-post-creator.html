@@ -1,8 +1,11 @@
 <!DOCTYPE html>
 <!--
   HRBR Post Creator
-  Version: 3.9.1
-  Updated: September 2026
+  Version: 3.9.2
+  Updated: October 2026
+  Changes in v3.9.2:
+    - Saturday run's Instagram/FB post now schedules Friday 12pm (was 7pm).
+      Tuesday (Mon) and Thursday (Wed) stay at 7pm.
   Changes in v3.9.1:
     - Tide fix: Whitford moved from Onehunga (Manukau) to Auckland station.
       Whitford is on the Tamaki Strait / Hauraki Gulf, not the Manukau.
@@ -1471,7 +1474,7 @@ function App() {
                         <div style={{textAlign:'center'}}>
                             <h1 style={{color:'var(--forest)', marginBottom:'0.2rem'}}>Post Creator</h1>
                             <p style={{color:'#6c757d', fontSize:'0.82rem'}}>Create your weekly running posts</p>
-                            <p style={{color:'#6c757d', fontSize:'0.7rem'}}>v3.9.1</p>
+                            <p style={{color:'#6c757d', fontSize:'0.7rem'}}>v3.9.2</p>
                         </div>
                     </div>
                     <div style={{flex:1, minWidth:'300px', background:'white', borderRadius:'12px', padding:'0.9rem', boxShadow:'0 2px 8px rgba(26,95,58,0.1)', border:'1px solid #dee2e6'}}>
@@ -1684,14 +1687,15 @@ function App() {
                                                 onClick={async () => {
                                                     const imgDataUrl = await getResizedDataUrl(post);
                                                     const schedDay = {Tuesday:1, Thursday:3, Saturday:5}[post.day];
-                                                    const schedTime = nextNZTSchedule(schedDay, 19, 0);
+                                                    const schedHour = {Tuesday:19, Thursday:19, Saturday:12}[post.day];
+                                                    const schedTime = nextNZTSchedule(schedDay, schedHour, 0);
                                                     await postToBufferScheduled(caption, imgDataUrl, schedTime, index + '-ig');
                                                 }}
                                                 disabled={!post.photo}
                                                 style={{width:'100%', padding:'0.6rem', background:'#E1306C', color:'white',
                                                         border:'none', borderRadius:'8px', fontWeight:'600', fontSize:'0.85rem',
                                                         cursor: post.photo ? 'pointer' : 'not-allowed', opacity: post.photo ? 1 : 0.5}}>
-                                                📸 Post to Instagram Buffer ({{'Tuesday':'Mon','Thursday':'Wed','Saturday':'Fri'}[post.day]} 7pm)
+                                                📸 Post to Instagram Buffer ({{'Tuesday':'Mon 7pm','Thursday':'Wed 7pm','Saturday':'Fri 12pm'}[post.day]})
                                             </button>
                                             {bufferStatus[index + '-ig'] && <div style={{marginTop:'0.3rem', fontSize:'0.75rem', textAlign:'center', color: bufferStatus[index + '-ig'].startsWith('✅') ? 'green' : bufferStatus[index + '-ig'].startsWith('❌') ? 'red' : '#666'}}>{bufferStatus[index + '-ig']}</div>}
                                         </div>
@@ -1700,14 +1704,15 @@ function App() {
                                                 onClick={async () => {
                                                     const imgDataUrl = await getResizedDataUrl(post);
                                                     const schedDay = {Tuesday:1, Thursday:3, Saturday:5}[post.day];
-                                                    const schedTime = nextNZTSchedule(schedDay, 19, 0);
+                                                    const schedHour = {Tuesday:19, Thursday:19, Saturday:12}[post.day];
+                                                    const schedTime = nextNZTSchedule(schedDay, schedHour, 0);
                                                     await postToBufferScheduled(caption, imgDataUrl, schedTime, index + '-fb', BUFFER_FB_CHANNEL_ID);
                                                 }}
                                                 disabled={!post.photo}
                                                 style={{width:'100%', padding:'0.6rem', background:'#1877F2', color:'white',
                                                         border:'none', borderRadius:'8px', fontWeight:'600', fontSize:'0.85rem',
                                                         cursor: post.photo ? 'pointer' : 'not-allowed', opacity: post.photo ? 1 : 0.5}}>
-                                                👥 Post to FB Group Buffer ({{'Tuesday':'Mon','Thursday':'Wed','Saturday':'Fri'}[post.day]} 7pm)
+                                                👥 Post to FB Group Buffer ({{'Tuesday':'Mon 7pm','Thursday':'Wed 7pm','Saturday':'Fri 12pm'}[post.day]})
                                             </button>
                                             {bufferStatus[index + '-fb'] && <div style={{marginTop:'0.3rem', fontSize:'0.75rem', textAlign:'center', color: bufferStatus[index + '-fb'].startsWith('✅') ? 'green' : bufferStatus[index + '-fb'].startsWith('❌') ? 'red' : '#666'}}>{bufferStatus[index + '-fb']}</div>}
                                         </div>
