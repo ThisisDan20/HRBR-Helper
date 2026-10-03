@@ -1,8 +1,22 @@
 <!DOCTYPE html>
 <!--
   HRBR Post Creator
-  Version: 3.9.2
+  Version: 3.11
   Updated: October 2026
+  Changes in v3.11:
+    - Tide table judges the tide across the run window (Tue/Thu 90 min,
+      Sat 2 h) as a fraction of the cycle's range: ✅ low throughout,
+      🌊 high throughout, ⚠️ mid/crossing with a timing hint.
+    - Table shows start → end height + next turn; new Coastal column.
+    - getTideFromCache() no longer called (kept for reference).
+  Changes in v3.10:
+    - New tide line in posts/email/Strava/download image:
+      "Tide: ~2.5m at start, falling ▼ to 0.6m low at 5:13pm"
+      Height is cosine-interpolated at run start; shows the NEXT turn
+      (where the tide is heading), not the nearest by clock.
+      Replaces the old "Low Tide:" label, which mislabelled highs.
+    - Tide table at top unchanged (keeps ✅/🌊 doable icons).
+    - Fix: Download Instagram Image threw on undefined `size` (now W).
   Changes in v3.9.2:
     - Saturday run's Instagram/FB post now schedules Friday 12pm (was 7pm).
       Tuesday (Mon) and Thursday (Wed) stay at 7pm.
@@ -312,6 +326,81 @@ function App() {
         return `${best.value.toFixed(1)}m (${arrow}${tLabel} ${localTime}${nearbyTag})`;
     };
 
+    // Post/email/Strava tide line: interpolated height at run start + the next turn the tide is heading to.
+    // (Tide table at the top still uses getTideFromCache, which keeps the ✅/🌊 doable icons.)
+    const getTideDetail = (cache, lat, lng, runTime, station) => {
+        if (!cache) return null;
+        let bestLoc = null;
+        if (station && cache.locations[station]) {
+            bestLoc = cache.locations[station];
+        } else {
+            let bestDist = Infinity;
+            for (const [name, loc] of Object.entries(cache.locations)) {
+                const dist = Math.abs(loc.lat - lat) + Math.abs(loc.lng - lng);
+                if (dist < bestDist) { bestDist = dist; bestLoc = loc; }
+            }
+        }
+        const values = (bestLoc && bestLoc.values) || [];
+        const runMs = runTime.getTime();
+        for (let i = 0; i < values.length - 1; i++) {
+            const a = values[i], b = values[i + 1];
+            const ta = new Date(a.time).getTime(), tb = new Date(b.time).getTime();
+            if (runMs < ta || runMs >= tb) continue;
+            // Cosine interpolation between the turning points either side of the start
+            const f = (runMs - ta) / (tb - ta);
+            const h = (a.value + b.value) / 2 + (a.value - b.value) / 2 * Math.cos(Math.PI * f);
+            const rising = b.value > a.value;
+            const nextTime = new Date(b.time).toLocaleTimeString('en-NZ', { hour:'numeric', minute:'2-digit', hour12:true, timeZone:'Pacific/Auckland' }).replace(/\s/g, '').toLowerCase();
+            return `~${h.toFixed(1)}m at start, ${rising ? 'rising ▲' : 'falling ▼'} to ${b.value.toFixed(1)}m ${rising ? 'high' : 'low'} at ${nextTime}`;
+        }
+        return null;
+    };
+
+    // Tide table: tide across the run window, as a fraction of the current cycle's range
+    // (so the same rule works at stations with different ranges).
+    // ✅ bottom third throughout · 🌊 top third throughout · ⚠️ otherwise, with a timing hint.
+    const getTideWindow = (cache, lat, lng, runTime, station, minutes) => {
+        if (!cache) return null;
+        let bestLoc = null;
+        if (station && cache.locations[station]) {
+            bestLoc = cache.locations[station];
+        } else {
+            let bestDist = Infinity;
+            for (const [name, loc] of Object.entries(cache.locations)) {
+                const dist = Math.abs(loc.lat - lat) + Math.abs(loc.lng - lng);
+                if (dist < bestDist) { bestDist = dist; bestLoc = loc; }
+            }
+        }
+        const values = (bestLoc && bestLoc.values) || [];
+        const at = (ms) => {
+            for (let i = 0; i < values.length - 1; i++) {
+                const a = values[i], b = values[i + 1];
+                const ta = new Date(a.time).getTime(), tb = new Date(b.time).getTime();
+                if (ms < ta || ms >= tb) continue;
+                const f = (ms - ta) / (tb - ta);
+                const h = (a.value + b.value) / 2 + (a.value - b.value) / 2 * Math.cos(Math.PI * f);
+                const lo = Math.min(a.value, b.value), hi = Math.max(a.value, b.value);
+                return { h, frac: hi > lo ? (h - lo) / (hi - lo) : 0, next: b, nextMs: tb };
+            }
+            return null;
+        };
+        const startMs = runTime.getTime(), endMs = startMs + minutes * 60000;
+        const s = at(startMs), e = at(endMs);
+        if (!s || !e) return null;
+        const fracs = [];
+        for (let ms = startMs; ms <= endMs; ms += 5 * 60000) { const p = at(ms); if (p) fracs.push(p.frac); }
+        const fmt = (iso) => new Date(iso).toLocaleTimeString('en-NZ', { hour:'numeric', minute:'2-digit', hour12:true, timeZone:'Pacific/Auckland' }).replace(/\s/g, '').toLowerCase();
+        const nextIsHigh = s.next.value > s.h;
+        let icon, label, hint;
+        if (Math.max(...fracs) < 1/3)      { icon = '✅'; label = 'Low';  hint = 'Fine throughout'; }
+        else if (Math.min(...fracs) > 2/3) { icon = '🌊'; label = 'High'; hint = 'Likely not doable'; }
+        else if (s.nextMs < endMs)         { icon = '⚠️'; label = nextIsHigh ? 'High mid-run' : 'Low mid-run'; hint = `${nextIsHigh ? 'High' : 'Low'} at ${fmt(s.next.time)}`; }
+        else if (e.h > s.h)                { icon = '⚠️'; label = 'Rising';  hint = 'Coastal bit early'; }
+        else                               { icon = '⚠️'; label = 'Falling'; hint = 'Coastal bit later'; }
+        return { h0: s.h, h1: e.h, rising: e.h > s.h, nextType: nextIsHigh ? 'High' : 'Low',
+                 nextValue: s.next.value, nextTime: fmt(s.next.time), icon, label, hint };
+    };
+
     const isNZWinter = () => {
         const now = new Date();
         const nzt = new Date(now.toLocaleString('en-US', { timeZone: 'Pacific/Auckland' }));
@@ -354,8 +443,8 @@ function App() {
         try {
             runTime = getRunDateForDay(day, hour, min);
             const effectiveCache = cache !== undefined ? cache : tideCache;
-            const cached = getTideFromCache(effectiveCache, lat, lng, runTime, station);
-            if (cached) return { name, day, runTime, tide: cached, desc };
+            const win = getTideWindow(effectiveCache, lat, lng, runTime, station, day === 'Saturday' ? 120 : 90);
+            if (win) return { name, day, runTime, tide: '', win, desc };
             return { name, day, runTime, tide: effectiveCache ? 'Not in cache' : 'No cache (run workflow)', desc };
         } catch(e) {
             return { name, day, runTime, tide: 'Error', desc };
@@ -566,7 +655,7 @@ function App() {
         const hashtags = "#running #trailrunning #aucklandrunning #runningcommunity #grouprun #outdoors";
         const tide = tideInfo[post.day];
         const weather = weatherInfo[post.day];
-        const tideText = tide ? `\n🌊 Low Tide: ${tide}` : '';
+        const tideText = tide ? `\n🌊 Tide: ${tide}` : '';
         const address = post.location.meetingSpot || post.location.name;
         const bodyText = textWithWeather(post.text, weather);
         const mapLine = '';
@@ -766,7 +855,7 @@ function App() {
             }).split('/').reverse().join('-');
             
             // Use tides.json cache (populated by GitHub Actions workflow)
-            const cachedTide = getTideFromCache(tideCache, lat, lng, runTime, station);
+            const cachedTide = getTideDetail(tideCache, lat, lng, runTime, station);
             if (cachedTide) return cachedTide;
             return tideCache ? null : null; // no cache available
         } catch(e) {
@@ -872,7 +961,7 @@ function App() {
         posts.forEach((post) => {
             const tide = tideInfo[post.day];
             const weather = weatherInfo[post.day];
-            const tideText = tide ? `\n🌊 Low Tide: ${tide}` : '';
+            const tideText = tide ? `\n🌊 Tide: ${tide}` : '';
             const address = post.location.meetingSpot || post.location.name;
             const bodyText = textWithWeather(post.text, weather);
             const mapLine = '';
@@ -886,7 +975,7 @@ function App() {
         posts.forEach((post, index) => {
             const tide = tideInfo[post.day];
             const weather = weatherInfo[post.day];
-            const tideText = tide ? `<br>🌊 Low Tide: ${tide}` : '';
+            const tideText = tide ? `<br>🌊 Tide: ${tide}` : '';
             const address = post.location.meetingSpot || post.location.name;
             const bodyText = textWithWeather(post.text, weather);
             const lines = bodyText.split('\n').filter(l => l.trim());
@@ -981,7 +1070,7 @@ function App() {
                 const logoWidth = 250;
                 const logoHeight = (logoImg.height / logoImg.width) * logoWidth;
                 const logoPadding = 15;
-                const logoX = size - logoWidth - 40 - logoPadding;
+                const logoX = W - logoWidth - 40 - logoPadding;
                 const logoBottom = 40 - logoPadding + logoHeight + logoPadding * 2; // y where logo ends
 
                 // Top overlay - Day, Time, and Location name with YELLOW background
@@ -1041,9 +1130,15 @@ function App() {
                 
                 // Add tide info
                 if (tide) {
-                    y += fontSize * 1.3;
                     dbg('Drawing tide on image:', tide);
-                    drawTextWithYellowBG(`🌊 Low Tide: ${tide}`, 40, y, 50, '600');
+                    // Two pills so the longer tide text fits the 1080px width
+                    const [tideA, tideB] = tide.split(', ');
+                    y += fontSize * 1.3;
+                    drawTextWithYellowBG(`🌊 Tide: ${tideA}`, 40, y, 50, '600');
+                    if (tideB) {
+                        y += fontSize * 1.3;
+                        drawTextWithYellowBG(tideB, 40, y, 50, '600');
+                    }
                 }
                 
                 // Add weather info
@@ -1057,7 +1152,7 @@ function App() {
                 // White background extending to right edge
                 ctx.fillStyle = 'rgba(255, 255, 255, 0.95)';
                 ctx.fillRect(logoX - logoPadding, 40 - logoPadding, 
-                            size - (logoX - logoPadding), logoHeight + logoPadding*2);
+                            W - (logoX - logoPadding), logoHeight + logoPadding*2);
                 
                 // Draw logo
                 ctx.drawImage(logoImg, logoX, 40, logoWidth, logoHeight);
@@ -1413,7 +1508,7 @@ function App() {
     const generateStravaEvent = (post) => {
         const tide = tideInfo[post.day];
         const weather = weatherInfo[post.day];
-        const tideText = tide ? `\n🌊 Low Tide: ${tide}` : '';
+        const tideText = tide ? `\n🌊 Tide: ${tide}` : '';
         const address = post.location.meetingSpot || post.location.name;
         const bodyText = textWithWeather(post.text, weather);
         return {
@@ -1474,12 +1569,12 @@ function App() {
                         <div style={{textAlign:'center'}}>
                             <h1 style={{color:'var(--forest)', marginBottom:'0.2rem'}}>Post Creator</h1>
                             <p style={{color:'#6c757d', fontSize:'0.82rem'}}>Create your weekly running posts</p>
-                            <p style={{color:'#6c757d', fontSize:'0.7rem'}}>v3.9.2</p>
+                            <p style={{color:'#6c757d', fontSize:'0.7rem'}}>v3.11</p>
                         </div>
                     </div>
                     <div style={{flex:1, minWidth:'300px', background:'white', borderRadius:'12px', padding:'0.9rem', boxShadow:'0 2px 8px rgba(26,95,58,0.1)', border:'1px solid #dee2e6'}}>
                         <div style={{fontWeight:700, color:'var(--forest)', fontSize:'0.85rem', marginBottom:'0.6rem', paddingBottom:'0.4rem', borderBottom:'2px solid var(--gold)', display:'flex', justifyContent:'space-between', alignItems:'center'}}>
-                            <span>🌊 Weekly Tides at Run Start</span>
+                            <span>🌊 Weekly Tides During Run</span>
                             <button onClick={() => loadTideTable(saturdayLocations, tideCache)} style={{background:'none', border:'1px solid var(--forest)', borderRadius:'6px', color:'var(--forest)', cursor:'pointer', fontSize:'0.72rem', padding:'0.15rem 0.45rem'}}>↺ Refresh</button>
                         </div>
                         {tideTableLoading ? (
@@ -1488,9 +1583,9 @@ function App() {
                             <div style={{color:'#6c757d', fontSize:'0.82rem'}}>No coastal locations found.</div>
                         ) : (
                             <table style={{width:'100%', borderCollapse:'collapse', fontSize:'0.78rem', tableLayout:'fixed'}}>
-                                <colgroup><col style={{width:'50%'}}/><col style={{width:'13%'}}/><col style={{width:'11%'}}/><col style={{width:'26%'}}/></colgroup>
+                                <colgroup><col style={{width:'36%'}}/><col style={{width:'10%'}}/><col style={{width:'12%'}}/><col style={{width:'24%'}}/><col style={{width:'18%'}}/></colgroup>
                                 <thead><tr style={{borderBottom:'1px solid #dee2e6'}}>
-                                    {['Location','Day','Start','Tide'].map(h => <th key={h} style={{textAlign:'left', padding:'0.25rem 0.35rem', color:'var(--forest)', fontWeight:600}}>{h}</th>)}
+                                    {['Location','Day','Start','Tide','Coastal'].map(h => <th key={h} style={{textAlign:'left', padding:'0.25rem 0.35rem', color:'var(--forest)', fontWeight:600}}>{h}</th>)}
                                 </tr></thead>
                                 <tbody>
                                     {tideTable.map((row, i) => {
@@ -1504,9 +1599,21 @@ function App() {
                                                 </td>
                                                 <td style={{padding:'0.25rem 0.35rem', whiteSpace:'nowrap', textAlign:'left'}}><span style={{background:{Tuesday:'#e0f2fe',Thursday:'#d1fae5',Saturday:'#ffedd5'}[row.day]||'#eee', padding:'0.1rem 0.35rem', borderRadius:'4px', fontSize:'0.7rem', fontWeight:600}}>{row.day.slice(0,3)}</span></td>
                                                 <td style={{padding:'0.25rem 0.35rem', color:'#6c757d', whiteSpace:'nowrap', textAlign:'left'}}>{runTimeStr}</td>
-                                                <td style={{padding:'0.25rem 0.35rem', fontWeight:600, color:tideColor, whiteSpace:'nowrap', textAlign:'left'}}>
-                                                    {row.tide}
-                                                    {row.runTime && <span style={{fontWeight:400, color:'#888', fontSize:'0.72rem', marginLeft:'0.3rem'}}>{row.runTime.toLocaleDateString('en-NZ', {day:'numeric', month:'short', timeZone:'Pacific/Auckland'}).replace(' ', '-')}</span>}
+                                                <td style={{padding:'0.25rem 0.35rem', textAlign:'left'}}>
+                                                    {row.win ? (
+                                                        <div>
+                                                            <div style={{fontWeight:600, color: row.win.rising ? '#c05c00' : '#1a5f3a', whiteSpace:'nowrap'}}>{row.win.h0.toFixed(1)}m → {row.win.h1.toFixed(1)}m {row.win.rising ? '▲' : '▼'}</div>
+                                                            <div style={{fontSize:'0.68rem', color:'#888'}}>{row.win.nextType} {row.win.nextValue.toFixed(1)}m {row.win.nextTime}{row.runTime ? ' · ' + row.runTime.toLocaleDateString('en-NZ', {day:'numeric', month:'short', timeZone:'Pacific/Auckland'}).replace(' ', '-') : ''}</div>
+                                                        </div>
+                                                    ) : <span style={{fontWeight:600, color:tideColor}}>{row.tide}</span>}
+                                                </td>
+                                                <td style={{padding:'0.25rem 0.35rem', textAlign:'left'}}>
+                                                    {row.win && (
+                                                        <div>
+                                                            <div style={{fontWeight:600, whiteSpace:'nowrap'}}>{row.win.icon} {row.win.label}</div>
+                                                            <div style={{fontSize:'0.68rem', color:'#888'}}>{row.win.hint}</div>
+                                                        </div>
+                                                    )}
                                                 </td>
                                             </tr>
                                         );
