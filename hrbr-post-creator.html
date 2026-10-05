@@ -1,8 +1,15 @@
 <!DOCTYPE html>
 <!--
   HRBR Post Creator
-  Version: 3.11
+  Version: 3.12
   Updated: October 2026
+  Changes in v3.12:
+    - New Insta/FB/Strava wording: tidier title, newcomer line (free, no sign-up),
+      plain route, refreshments, local hashtags. Instagram: 'Strava club link in bio';
+      FB Group Buffer post keeps the full URL.
+    - Social wording applies while run text is default; edited text still flows through.
+    - Weekly email: newcomer line added under 'Runs this week...'; per-run detail unchanged.
+    - Fix: changing Thursday/Saturday location after Generate now refreshes tide/weather.
   Changes in v3.11:
     - Tide table judges the tide across the run window (Tue/Thu 90 min,
       Sat 2 h) as a fraction of the cycle's range: ✅ low throughout,
@@ -224,26 +231,35 @@ First entrance after Parau. An hour of bush and beach to Cornwallis and back, 8k
 const THURSDAY_LOCATIONS = [
     { name: "Huia Rd/Exhibition Drive", link: "https://maps.app.goo.gl/cihV7R2A1bV6hEGo6",
       meetingSpot: "Opposite 394 Huia Road, Titirangi, Auckland 0604",
-      lat: -36.9503, lng: 174.5711, coastal: false,
+      lat: -36.9503, lng: 174.5711, coastal: false, tags: '#waitakere #titirangi',
+      social: { title: `Thursday ${nextThursday}, 5:45pm · Arataki`, body: '6km of trails around Arataki, about an hour.', where: 'Corner of Huia Road & Exhibition Drive, Titirangi (opposite 394 Huia Road).' },
       dogFriendly: "🐕 Dogs ok, on lead.",
       text: `Thursday ${nextThursday} 5:45pm - Huia Rd/Exhibition Drive
 6km/1hr trail run around Arataki. All welcome — we run together and no one gets left behind.
 Meet: corner Huia Road & Exhibition Drive.` },
     { name: "Laingholm Beach", link: "https://maps.app.goo.gl/UPvJ3NvmEZCmLVsY8",
       meetingSpot: "Laingholm Beach, Laingholm Drive, Auckland 0604",
-      lat: -36.9701, lng: 174.5501,
+      lat: -36.9701, lng: 174.5501, tags: '#waitakere #laingholm',
+      social: { title: `Thursday ${nextThursday}, 6pm · Laingholm Beach`, body: '7km of beach, bush and coastal track.', where: 'Laingholm Beach, Laingholm Drive. Meet on the shells.' },
       dogFriendly: "🐕 Dogs ok, on lead.",
       text: `Thursday ${nextThursday} 6pm. Laingholm Beach
 7km beach, bush and coastal bash. All welcome — we run together and no one gets left behind.
 Meet: Laingholm beach on the shells.` },
     { name: "Curry Night, Waikumete, Glen Eden", link: "https://maps.app.goo.gl/BV1iQqPVdTJ5aGMK6",
       meetingSpot: "Thip Thai Restaurant, 26 Glenmall Place, Glen Eden, Auckland 0602",
-      lat: -36.9169, lng: 174.6419,
+      lat: -36.9169, lng: 174.6419, tags: '#waitakere #gleneden',
+      social: { title: `Thursday ${nextThursday}, 6pm · Curry night, Waikumete`, body: '7km of trails, tracks and gravel around Waikumete Cemetery, about an hour. Curry at Thip Thai after.', where: 'Meet outside Thip Thai, 26 Glenmall Place, Glen Eden.' },
       dogFriendly: "🐕 Dogs ok, on lead.",
       text: `Thursday ${nextThursday} 6pm - Curry night, Waikumete
 1hr, 7km trails, tracks, gravel and graves run around Waikumete cemetery. All welcome — we run together and no one gets left behind.
 Meet outside Thip Thai restaurant at 6:00pm.` }
 ];
+// Social wording only applies while the run text is still the default
+THURSDAY_LOCATIONS.forEach(l => { l.social.source = l.text; });
+TUESDAY_LOCATION.tags = '#waitakere #huia';
+TUESDAY_LOCATION.social = { source: TUESDAY_TEXT, title: `Tuesday ${nextTuesday}, 5:15pm · Mill Bay`,
+    body: '8km of bush and beach out to Cornwallis and back, about an hour.',
+    where: 'Mill Bay, 800 Huia Road, Cornwallis. First entrance after Parau.' };
 
 function App() {
     const [saturdayLocations, setSaturdayLocations] = useState([]);
@@ -602,6 +618,8 @@ function App() {
         // Clear cache so next Generate fetches fresh env for new location
         envCache.current = {};
         setPosts(newPosts);
+        // Output already showing → refresh tide/weather for the new location
+        if (showOutput) fetchAllEnvData(newPosts);
     };
 
     const getNextSaturday = () => {
@@ -635,6 +653,8 @@ function App() {
         // Clear cache so next Generate fetches fresh env for new location
         envCache.current = {};
         setPosts(newPosts);
+        // Output already showing → refresh tide/weather for the new location
+        if (showOutput) fetchAllEnvData(newPosts);
     };
     const textWithWeather = (text, weather) => {
         if (!weather) return text;
@@ -651,16 +671,49 @@ function App() {
     };
 
 
-    const generateCaption = (post) => {
-        const hashtags = "#running #trailrunning #aucklandrunning #runningcommunity #grouprun #outdoors";
-        const tide = tideInfo[post.day];
-        const weather = weatherInfo[post.day];
-        const tideText = tide ? `\n🌊 Tide: ${tide}` : '';
+    // ── Insta / FB / Strava wording ─────────────────────────────────────────
+    // Email keeps using post.text unchanged. If a run's text is still the default,
+    // the tidier social wording below is used; if it's been edited, the edited text
+    // is used with a generic layout (so one-off changes still flow through).
+    const WELCOME_LINE = "Never run with us? Just turn up — it's free and there's no sign-up. We run together and no one gets left behind.";
+    const STRAVA_URL = 'https://strava.app.link/mTXtNG8dR1b';
+
+    const getSocialParts = (post) => {
         const address = post.location.meetingSpot || post.location.name;
-        const bodyText = textWithWeather(post.text, weather);
-        const mapLine = '';
-        const stravaLine = `\n🔶 Join our Strava club: https://strava.app.link/mTXtNG8dR1b`;
-        return `HRBR Run ${bodyText}${difficultyLine(post)}${torchLine(post)}${dogLine(post)}${tideText}\n📍 ${address}.${mapLine}${stravaLine}\n\n${hashtags}`;
+        let social = null;
+        if (post.day === 'Saturday') {
+            const desc = post.location.description || '';
+            const oldTitle = `Saturday ${getNextSaturday()} 2pm 10km - ${post.location.name}`;
+            const source = desc ? `${oldTitle}\n${desc}` : oldTitle;
+            if (post.text.trim() === source.trim())
+                social = { title: `Saturday ${getNextSaturday()}, 2pm · ${post.location.name}`,
+                           body: desc ? `10km — ${desc}` : '10km.', where: `${address}.` };
+        } else if (post.location.social && post.text.trim() === post.location.social.source.trim()) {
+            social = post.location.social;
+        }
+        if (!social) {
+            const lines = post.text.split('\n');
+            const body = lines.slice(1).join('\n')
+                .replace(/\s*All welcome — we run together and no one gets left behind\./g, '').trim();
+            social = { title: lines[0], body, where: `${address}.` };
+        }
+        // Refreshments at every run — skip if the text already says what's on after (e.g. curry)
+        const refresh = /\bafter\b/i.test(social.body) ? '' : 'Refreshments after.';
+        const body = [social.body, refresh].filter(Boolean).join(social.body && refresh ? ' ' : '');
+        return { title: social.title, body, where: social.where,
+                 tags: `#trailrunning #aucklandtrailrunning ${post.location.tags || '#grouprun'}` };
+    };
+
+    // platform: 'ig' (default) → "link in bio" (captions links aren't clickable); 'fb' → full URL
+    const generateCaption = (post, platform = 'ig') => {
+        const p = getSocialParts(post);
+        const tide = tideInfo[post.day];
+        const tideText = tide ? `\n🌊 Tide: ${tide}` : '';
+        const stravaLine = platform === 'fb'
+            ? `\n🔶 Join our Strava club and events: ${STRAVA_URL}`
+            : `\n🔶 Strava club link in bio`;
+        return `HRBR Run ${textWithWeather(p.title, weatherInfo[post.day])}\n${WELCOME_LINE}\n${p.body}`
+             + `${difficultyLine(post)}${torchLine(post)}${dogLine(post)}${tideText}\n📍 ${p.where}${stravaLine}\n\n${p.tags}`;
     };
     
     const generateSubjectLine = (posts) => {
@@ -957,7 +1010,7 @@ function App() {
     };
 
     const generateEmailText = (posts) => {
-        let out = "Runs this week...\n\n🔶 Join our Strava club and events: https://strava.app.link/mTXtNG8dR1b";
+        let out = "Runs this week...\nNever run with us? Just turn up — it's free and there's no sign-up. We run together and no one gets left behind. Refreshments after.\n🔶 Join our Strava club and events: https://strava.app.link/mTXtNG8dR1b";
         posts.forEach((post) => {
             const tide = tideInfo[post.day];
             const weather = weatherInfo[post.day];
@@ -971,7 +1024,7 @@ function App() {
     };
 
     const generateEmailTextHTML = (posts) => {
-        let out = `<strong>Runs this week...</strong><br><br>🔶 Join our Strava club and events: <a href="https://strava.app.link/mTXtNG8dR1b" target="_blank">https://strava.app.link/mTXtNG8dR1b</a>`;
+        let out = `<strong>Runs this week...</strong><br>Never run with us? Just turn up — it's free and there's no sign-up. We run together and no one gets left behind. Refreshments after.<br>🔶 Join our Strava club and events: <a href="https://strava.app.link/mTXtNG8dR1b" target="_blank">https://strava.app.link/mTXtNG8dR1b</a>`;
         posts.forEach((post, index) => {
             const tide = tideInfo[post.day];
             const weather = weatherInfo[post.day];
@@ -1506,15 +1559,13 @@ function App() {
     };
 
     const generateStravaEvent = (post) => {
+        const p = getSocialParts(post);
         const tide = tideInfo[post.day];
-        const weather = weatherInfo[post.day];
         const tideText = tide ? `\n🌊 Tide: ${tide}` : '';
-        const address = post.location.meetingSpot || post.location.name;
-        const bodyText = textWithWeather(post.text, weather);
         return {
-            title: `HRBR Run ${post.text.split('\n')[0]}` || `HRBR ${post.day} Group Run`,
+            title: `HRBR Run ${p.title}`,
             type: "Group Run",
-            description: `${bodyText}${difficultyLine(post)}${torchLine(post)}${dogLine(post)}${tideText}\n📍 ${address}.`,
+            description: `${textWithWeather(p.title, weatherInfo[post.day])}\n${WELCOME_LINE}\n${p.body}${difficultyLine(post)}${torchLine(post)}${dogLine(post)}${tideText}\n📍 ${p.where}`,
             location: post.location.meetingSpot || post.location.name,
             mapLink: post.location.link
         };
@@ -1569,7 +1620,7 @@ function App() {
                         <div style={{textAlign:'center'}}>
                             <h1 style={{color:'var(--forest)', marginBottom:'0.2rem'}}>Post Creator</h1>
                             <p style={{color:'#6c757d', fontSize:'0.82rem'}}>Create your weekly running posts</p>
-                            <p style={{color:'#6c757d', fontSize:'0.7rem'}}>v3.11</p>
+                            <p style={{color:'#6c757d', fontSize:'0.7rem'}}>v3.12</p>
                         </div>
                     </div>
                     <div style={{flex:1, minWidth:'300px', background:'white', borderRadius:'12px', padding:'0.9rem', boxShadow:'0 2px 8px rgba(26,95,58,0.1)', border:'1px solid #dee2e6'}}>
@@ -1813,7 +1864,7 @@ function App() {
                                                     const schedDay = {Tuesday:1, Thursday:3, Saturday:5}[post.day];
                                                     const schedHour = {Tuesday:19, Thursday:19, Saturday:12}[post.day];
                                                     const schedTime = nextNZTSchedule(schedDay, schedHour, 0);
-                                                    await postToBufferScheduled(caption, imgDataUrl, schedTime, index + '-fb', BUFFER_FB_CHANNEL_ID);
+                                                    await postToBufferScheduled(generateCaption(post, 'fb'), imgDataUrl, schedTime, index + '-fb', BUFFER_FB_CHANNEL_ID);
                                                 }}
                                                 disabled={!post.photo}
                                                 style={{width:'100%', padding:'0.6rem', background:'#1877F2', color:'white',
